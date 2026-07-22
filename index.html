@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sing &amp; Chord — Live Chord Suggester</title>
+<style>
+  :root{
+    --bg:#0f1117; --card:#181b25; --card2:#1f2330;
+    --accent:#f5b942; --accent2:#5ec8f2; --good:#5ede8a;
+    --text:#eef0f6; --muted:#8a90a3; --border:#2a2f40;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height:100vh; display:flex; flex-direction:column; align-items:center;
+    padding:24px 16px 48px;
+  }
+  h1{font-size:1.5rem; font-weight:600; letter-spacing:.5px;}
+  h1 span{color:var(--accent);}
+  .sub{color:var(--muted); font-size:.9rem; margin-top:4px; text-align:center;}
+  .wrap{width:100%; max-width:760px; display:flex; flex-direction:column; gap:16px; margin-top:20px;}
+  .card{background:var(--card); border:1px solid var(--border); border-radius:16px; padding:20px;}
+  .controls{display:flex; gap:12px; justify-content:center; flex-wrap:wrap;}
+  button{
+    font-family:inherit; font-size:1rem; font-weight:600;
+    padding:12px 28px; border-radius:999px; border:none; cursor:pointer;
+    transition:transform .1s, opacity .2s;
+  }
+  button:active{transform:scale(.97);}
+  #startBtn{background:var(--accent); color:#111;}
+  #startBtn.listening{background:#e05c5c; color:#fff;}
+  #resetBtn{background:var(--card2); color:var(--text); border:1px solid var(--border);}
+  .status{ text-align:center; color:var(--muted); font-size:.85rem; min-height:1.2em; margin-top:10px;}
+
+  /* Note display */
+  .noteRow{display:flex; align-items:center; justify-content:center; gap:24px; flex-wrap:wrap;}
+  .bigNote{
+    font-size:5rem; font-weight:700; line-height:1; min-width:170px; text-align:center;
+    color:var(--accent2); font-variant-numeric:tabular-nums;
+  }
+  .bigNote small{font-size:1.6rem; color:var(--muted);}
+  .noteMeta{display:flex; flex-direction:column; gap:6px; font-size:.9rem; color:var(--muted);}
+  .noteMeta b{color:var(--text); font-weight:600;}
+  /* cents bar */
+  .centsWrap{width:100%; max-width:420px; margin:18px auto 0;}
+  .centsBar{position:relative; height:10px; background:var(--card2); border-radius:5px; overflow:hidden;}
+  .centsBar .mid{position:absolute; left:50%; top:0; width:2px; height:100%; background:var(--muted);}
+  #centsDot{
+    position:absolute; top:-3px; width:16px; height:16px; border-radius:50%;
+    background:var(--accent); left:50%; transform:translateX(-50%);
+    transition:left .1s linear, background .2s;
+  }
+  .centsLabels{display:flex; justify-content:space-between; color:var(--muted); font-size:.7rem; margin-top:4px;}
+
+  /* level meter */
+  .meter{height:6px; border-radius:3px; background:var(--card2); overflow:hidden; margin-top:16px;}
+  #meterFill{height:100%; width:0%; background:linear-gradient(90deg, var(--good), var(--accent)); transition:width .08s;}
+
+  /* Key */
+  .keyRow{display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:8px;}
+  .keyName{font-size:2rem; font-weight:700; color:var(--good);}
+  .conf{color:var(--muted); font-size:.85rem;}
+  .label{font-size:.75rem; text-transform:uppercase; letter-spacing:1.5px; color:var(--muted); margin-bottom:10px;}
+
+  /* Chords */
+  .chordNow{
+    text-align:center; padding:10px 0 4px;
+  }
+  .chordNow .name{font-size:4rem; font-weight:800; color:var(--accent);}
+  .chordNow .why{color:var(--muted); font-size:.85rem; margin-top:4px;}
+  .altRow{display:flex; gap:10px; justify-content:center; margin-top:14px; flex-wrap:wrap;}
+  .altChord{
+    background:var(--card2); border:1px solid var(--border); border-radius:12px;
+    padding:8px 18px; font-size:1.3rem; font-weight:600; color:var(--text);
+  }
+  .palette{display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:6px;}
+  .pal{
+    background:var(--card2); border:1px solid var(--border); border-radius:10px;
+    padding:6px 14px; font-size:1rem; font-weight:600; color:var(--muted);
+    transition:all .15s;
+  }
+  .pal.active{color:#111; background:var(--accent); border-color:var(--accent); transform:scale(1.08);}
+
+  /* melody trail */
+  .trail{display:flex; gap:6px; flex-wrap:wrap; min-height:34px;}
+  .trailNote{
+    background:var(--card2); border:1px solid var(--border); border-radius:8px;
+    padding:4px 10px; font-size:.85rem; color:var(--accent2); font-weight:600;
+  }
+  .hint{color:var(--muted); font-size:.85rem; text-align:center;}
+  .pal, .altChord, .chordNow .name{cursor:pointer; user-select:none;}
+  .pal:hover, .altChord:hover{border-color:var(--accent); color:var(--text);}
+  .chordNow .name:active, .pal:active, .altChord:active{transform:scale(.95);}
+  .playRow{display:flex; align-items:center; justify-content:center; gap:18px; flex-wrap:wrap; margin-top:16px; color:var(--muted); font-size:.85rem;}
+  .playRow label{display:flex; align-items:center; gap:6px; cursor:pointer;}
+  .playRow input[type=checkbox]{accent-color:var(--accent); width:16px; height:16px;}
+  .playRow input[type=range]{accent-color:var(--accent); width:110px;}
+
+  /* Loop */
+  .loopChips{display:flex; gap:8px; flex-wrap:wrap; min-height:40px; margin-bottom:14px;}
+  .loopChip{
+    background:var(--card2); border:1px solid var(--border); border-radius:10px;
+    padding:8px 16px; font-size:1.1rem; font-weight:700; color:var(--text);
+    cursor:pointer; user-select:none; transition:all .12s;
+  }
+  .loopChip:hover{border-color:#e05c5c; color:#e05c5c;}
+  .loopChip.playing{background:var(--good); border-color:var(--good); color:#111; transform:scale(1.1);}
+  .loopCtrl{display:flex; gap:14px; align-items:center; flex-wrap:wrap; justify-content:center; color:var(--muted); font-size:.85rem;}
+  .loopCtrl button{padding:9px 20px; font-size:.95rem;}
+  #loopPlayBtn{background:var(--good); color:#111;}
+  #loopPlayBtn.on{background:#e05c5c; color:#fff;}
+  #loopAddBtn, #loopClearBtn{background:var(--card2); color:var(--text); border:1px solid var(--border);}
+  .loopCtrl label{display:flex; align-items:center; gap:6px; cursor:pointer;}
+  .loopCtrl input[type=range]{accent-color:var(--good); width:100px;}
+  .loopCtrl select{
+    background:var(--card2); color:var(--text); border:1px solid var(--border);
+    border-radius:8px; padding:6px 8px; font-family:inherit;
+  }
+  footer{color:var(--muted); font-size:.75rem; margin-top:28px; text-align:center; max-width:600px;}
+</style>
+</head>
+<body>
+  <h1>Sing <span>&amp;</span> Chord</h1>
+  <div class="sub">Sing or hum into your mic — I'll detect your notes, find the key, and suggest chords.</div>
+
+  <div class="wrap">
+    <div class="card">
+      <div class="controls">
+        <button id="startBtn">🎤 Start Listening</button>
+        <button id="resetBtn">↺ Reset Key</button>
+      </div>
+      <div class="status" id="status">Press Start and allow microphone access.</div>
+    </div>
+
+    <div class="card">
+      <div class="label">Note you're singing</div>
+      <div class="noteRow">
+        <div class="bigNote" id="noteName">—</div>
+        <div class="noteMeta">
+          <div>Pitch: <b id="freq">—</b></div>
+          <div>Octave: <b id="octave">—</b></div>
+          <div>Tuning: <b id="centsTxt">—</b></div>
+        </div>
+      </div>
+      <div class="centsWrap">
+        <div class="centsBar"><div class="mid"></div><div id="centsDot"></div></div>
+        <div class="centsLabels"><span>♭ flat</span><span>in tune</span><span>sharp ♯</span></div>
+      </div>
+      <div class="meter"><div id="meterFill"></div></div>
+    </div>
+
+    <div class="card">
+      <div class="keyRow">
+        <div><div class="label">Detected key</div><div class="keyName" id="keyName">Listening…</div></div>
+        <div class="conf" id="keyConf"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label">Suggested chord right now</div>
+      <div class="chordNow">
+        <div class="name" id="chordNow">—</div>
+        <div class="why" id="chordWhy">Sing a few notes so I can find your key first.</div>
+      </div>
+      <div class="altRow" id="altChords"></div>
+      <div class="playRow">
+        <span>🔊 Tap any chord to hear it</span>
+        <label><input type="checkbox" id="autoPlay"> Auto-play suggestions</label>
+        <label>Volume <input type="range" id="volSlider" min="0" max="100" value="45"></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label">Chord loop — your backing track</div>
+      <div class="loopChips" id="loopChips"><span class="hint">Add chords here, then press Play Loop and sing over it. Tap a chord in the loop to remove it.</span></div>
+      <div class="loopCtrl">
+        <button id="loopPlayBtn">▶ Play Loop</button>
+        <button id="loopAddBtn">➕ Add current chord</button>
+        <button id="loopClearBtn">✕ Clear</button>
+        <label><input type="checkbox" id="loopCapture"> Capture while I sing</label>
+        <label>Tempo <input type="range" id="bpmSlider" min="50" max="160" value="80"> <b id="bpmVal">80</b> bpm</label>
+        <label>Beats/chord
+          <select id="beatsSel"><option value="2">2</option><option value="4" selected>4</option><option value="8">8</option></select>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="label">Chords in this key</div>
+      <div class="palette" id="palette"><span class="hint">Waiting for key…</span></div>
+    </div>
+
+    <div class="card">
+      <div class="label">Melody so far</div>
+      <div class="trail" id="trail"><span class="hint">Notes you sing will appear here.</span></div>
+    </div>
+  </div>
+
+  <footer>Tip: sing clearly and hold each note for a moment. The key guess gets better the more you sing. Use Reset Key when you start a new song. Works best in a quiet room with headphones off... just kidding, headphones ON so the app doesn't hear itself.</footer>
+
+<script>
+(() => {
+  const NOTE_NAMES = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+  const NOTE_PLAIN = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+
+  // Krumhansl-Schmuckler key profiles
+  const MAJ_PROFILE = [6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88];
+  const MIN_PROFILE = [6.33,2.68,3.52,5.38,2.60,3.53,2.54,4.75,3.98,2.69,3.34,3.17];
+
+  // UI refs
+  const $ = id => document.getElementById(id);
+  const startBtn = $('startBtn'), resetBtn = $('resetBtn'), statusEl = $('status');
+  const noteNameEl = $('noteName'), freqEl = $('freq'), octaveEl = $('octave'),
+        centsTxt = $('centsTxt'), centsDot = $('centsDot'), meterFill = $('meterFill');
+  const keyNameEl = $('keyName'), keyConfEl = $('keyConf');
+  const chordNowEl = $('chordNow'), chordWhyEl = $('chordWhy'), altEl = $('altChords');
+  const paletteEl = $('palette'), trailEl = $('trail');
+  const autoPlayEl = $('autoPlay'), volSlider = $('volSlider');
+  const loopChipsEl = $('loopChips'), loopPlayBtn = $('loopPlayBtn'),
+        loopAddBtn = $('loopAddBtn'), loopClearBtn = $('loopClearBtn'),
+        loopCaptureEl = $('loopCapture'), bpmSlider = $('bpmSlider'),
+        bpmVal = $('bpmVal'), beatsSel = $('beatsSel');
+
+  let audioCtx = null, analyser = null, mediaStream = null, rafId = null;
+  let listening = false;
+
+  // pitch-class histogram (weighted by duration)
+  let pcHist = new Array(12).fill(0);
+  // note stability tracking
+  let lastPc = -1, stableCount = 0, committedPc = -1;
+  let trail = [];
+  let currentKey = null; // {tonic, mode, name, conf}
+  let buf = null;
+
+  startBtn.addEventListener('click', () => listening ? stop() : start());
+  resetBtn.addEventListener('click', () => {
+    pcHist.fill(0); trail = []; currentKey = null; committedPc = -1;
+    trailEl.innerHTML = '<span class="hint">Notes you sing will appear here.</span>';
+    keyNameEl.textContent = 'Listening…'; keyConfEl.textContent = '';
+    chordNowEl.textContent = '—'; chordWhyEl.textContent = 'Sing a few notes so I can find your key first.';
+    altEl.innerHTML = ''; paletteEl.innerHTML = '<span class="hint">Waiting for key…</span>';
+  });
+
+  async function start(){
+    try{
+      mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio:{ echoCancellation:false, noiseSuppression:false, autoGainControl:true }
+      });
+    }catch(e){
+      statusEl.textContent = 'Microphone blocked. Allow mic access in your browser and try again.';
+      return;
+    }
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = audioCtx.createMediaStreamSource(mediaStream);
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 4096;
+    src.connect(analyser);
+    buf = new Float32Array(analyser.fftSize);
+    listening = true;
+    startBtn.textContent = '⏹ Stop';
+    startBtn.classList.add('listening');
+    statusEl.textContent = 'Listening… sing your melody!';
+    loop();
+  }
+
+  function stop(){
+    listening = false;
+    cancelAnimationFrame(rafId);
+    if (mediaStream) mediaStream.getTracks().forEach(t => t.stop());
+    if (audioCtx) audioCtx.close();
+    audioCtx = null;
+    startBtn.textContent = '🎤 Start Listening';
+    startBtn.classList.remove('listening');
+    statusEl.textContent = 'Stopped. Press Start to listen again.';
+    noteNameEl.textContent = '—'; freqEl.textContent = '—';
+    octaveEl.textContent = '—'; centsTxt.textContent = '—';
+    meterFill.style.width = '0%';
+  }
+
+  function loop(){
+    rafId = requestAnimationFrame(loop);
+    analyser.getFloatTimeDomainData(buf);
+
+    // RMS level
+    let rms = 0;
+    for (let i=0;i<buf.length;i++) rms += buf[i]*buf[i];
+    rms = Math.sqrt(rms/buf.length);
+    meterFill.style.width = Math.min(100, rms*600) + '%';
+
+    if (rms < 0.012){ // silence
+      onSilence();
+      return;
+    }
+
+    const freq = detectPitch(buf, audioCtx.sampleRate);
+    if (freq > 0 && freq >= 70 && freq <= 1100){
+      onPitch(freq);
+    } else {
+      onSilence();
+    }
+  }
+
+  function onSilence(){
+    stableCount = 0; lastPc = -1;
+    noteNameEl.style.opacity = .35;
+  }
+
+  function onPitch(freq){
+    noteNameEl.style.opacity = 1;
+    const midi = 69 + 12 * Math.log2(freq/440);
+    const rounded = Math.round(midi);
+    const cents = Math.round((midi - rounded) * 100);
+    const pc = ((rounded % 12) + 12) % 12;
+    const octave = Math.floor(rounded/12) - 1;
+
+    noteNameEl.innerHTML = NOTE_NAMES[pc] + '<small>' + octave + '</small>';
+    freqEl.textContent = freq.toFixed(1) + ' Hz';
+    octaveEl.textContent = octave;
+    centsTxt.textContent = (cents>0?'+':'') + cents + ' cents';
+    const pct = Math.max(-50, Math.min(50, cents));
+    centsDot.style.left = (50 + pct) + '%';
+    centsDot.style.background = Math.abs(cents) < 15 ? 'var(--good)' : 'var(--accent)';
+
+    // stability: require same pitch class across frames before committing
+    if (pc === lastPc) stableCount++; else { stableCount = 0; lastPc = pc; }
+
+    if (stableCount === 6){ // ~100ms stable → commit note
+      commitNote(pc);
+    }
+    if (stableCount > 6 && stableCount % 12 === 0){
+      pcHist[pc] += 0.5; // sustained notes weigh more
+      updateKey();
+    }
+  }
+
+  function commitNote(pc){
+    pcHist[pc] += 1;
+    if (pc !== committedPc){
+      committedPc = pc;
+      trail.push(pc);
+      if (trail.length > 24) trail.shift();
+      trailEl.innerHTML = trail.map(p => '<span class="trailNote">'+NOTE_NAMES[p]+'</span>').join('');
+    }
+    updateKey();
+    suggestChord(pc);
+  }
+
+  // ---- Key detection (Krumhansl-Schmuckler) ----
+  function updateKey(){
+    const total = pcHist.reduce((a,b)=>a+b,0);
+    if (total < 4) return; // need a few notes first
+    let best = {score:-2, tonic:0, mode:'major'}, second = -2;
+    for (let t=0; t<12; t++){
+      for (const [mode, prof] of [['major',MAJ_PROFILE],['minor',MIN_PROFILE]]){
+        let r = correlate(pcHist, prof, t);
+        if (r > best.score){ second = best.score; best = {score:r, tonic:t, mode}; }
+        else if (r > second){ second = r; }
+      }
+    }
+    const conf = Math.max(0, Math.min(1, (best.score - second) * 4 + 0.4));
+    currentKey = {
+      tonic: best.tonic, mode: best.mode,
+      name: NOTE_PLAIN[best.tonic] + (best.mode==='minor' ? 'm' : ''),
+      conf
+    };
+    keyNameEl.textContent = NOTE_PLAIN[best.tonic] + ' ' + best.mode;
+    keyConfEl.textContent = 'confidence ' + Math.round(conf*100) + '% · ' + Math.round(total) + ' notes heard';
+    renderPalette();
+  }
+
+  function correlate(hist, prof, shift){
+    // Pearson correlation of hist vs profile rotated by shift
+    let n=12, sx=0, sy=0, sxx=0, syy=0, sxy=0;
+    for (let i=0;i<12;i++){
+      const x = hist[(i+shift)%12], y = prof[i];
+      sx+=x; sy+=y; sxx+=x*x; syy+=y*y; sxy+=x*y;
+    }
+    const num = sxy - sx*sy/n;
+    const den = Math.sqrt((sxx - sx*sx/n)*(syy - sy*sy/n));
+    return den === 0 ? 0 : num/den;
+  }
+
+  // ---- Chords ----
+  // diatonic triads: degree offsets and qualities
+  const MAJOR_DEG = [[0,''],[2,'m'],[4,'m'],[5,''],[7,''],[9,'m']];          // I ii iii IV V vi
+  const MINOR_DEG = [[0,'m'],[3,''],[5,'m'],[7,'m'],[8,''],[10,'']];        // i III iv v VI VII
+
+  function keyChords(){
+    if (!currentKey) return [];
+    const degs = currentKey.mode === 'major' ? MAJOR_DEG : MINOR_DEG;
+    return degs.map(([off, q]) => {
+      const root = (currentKey.tonic + off) % 12;
+      const third = (root + (q === 'm' ? 3 : 4)) % 12;
+      const fifth = (root + 7) % 12;
+      return { name: NOTE_PLAIN[root] + q, root, tones:[root, third, fifth] };
+    });
+  }
+
+  let activeChordName = null;
+
+  function suggestChord(pc){
+    if (!currentKey){ return; }
+    const chords = keyChords();
+    // rank: chords containing the sung note; prefer note as root > fifth > third; slight bias to tonic/IV/V
+    const bias = currentKey.mode === 'major' ? {0:0.3, 3:0.15, 4:0.2} : {0:0.3, 4:0.15, 5:0.1};
+    const scored = chords.map((c, i) => {
+      let s = 0;
+      const idx = c.tones.indexOf(pc);
+      if (idx === 0) s = 3;        // root
+      else if (idx === 2) s = 2;   // fifth
+      else if (idx === 1) s = 1.5; // third
+      s += bias[i] || 0;
+      return {...c, s};
+    }).filter(c => c.s > 0).sort((a,b) => b.s - a.s);
+
+    if (scored.length === 0){
+      chordWhyEl.textContent = NOTE_NAMES[pc] + ' is outside the key — passing note, keep the last chord.';
+      return;
+    }
+    const bestC = scored[0];
+    activeChordName = bestC.name;
+    chordNowEl.textContent = bestC.name;
+    chordWhyEl.textContent = 'You’re singing ' + NOTE_NAMES[pc] + ' — it’s the ' +
+      ['root','third','fifth'][bestC.tones.indexOf(pc)] + ' of ' + bestC.name +
+      ' in the key of ' + keyNameEl.textContent + '.';
+    altEl.innerHTML = scored.slice(1,4).map(c => '<span class="altChord">'+c.name+'</span>').join('');
+    renderPalette();
+
+    if (loopCaptureEl.checked && loopSeq.length < 16 && loopSeq[loopSeq.length-1] !== bestC.name){
+      loopSeq.push(bestC.name);
+      renderLoop();
+    }
+
+    if (autoPlayEl.checked){
+      const nowT = performance.now();
+      if (bestC.name !== lastPlayed || nowT - lastPlayTime > 2500){
+        if (nowT - lastPlayTime > 900) playChord(bestC.name);
+      }
+    }
+  }
+
+  function renderPalette(){
+    const chords = keyChords();
+    if (chords.length === 0) return;
+    paletteEl.innerHTML = chords.map(c =>
+      '<span class="pal'+(c.name===activeChordName?' active':'')+'">'+c.name+'</span>'
+    ).join('');
+  }
+
+  // ---- Chord playback ----
+  let playCtx = null, lastPlayed = '', lastPlayTime = 0;
+
+  function getPlayCtx(){
+    if (audioCtx && audioCtx.state !== 'closed') return audioCtx;
+    if (!playCtx || playCtx.state === 'closed')
+      playCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (playCtx.state === 'suspended') playCtx.resume();
+    return playCtx;
+  }
+
+  function parseChord(name){
+    if (!name || name === '—') return null;
+    const minor = name.endsWith('m');
+    const rootName = minor ? name.slice(0,-1) : name;
+    const rootPc = NOTE_PLAIN.indexOf(rootName);
+    if (rootPc < 0) return null;
+    return { rootPc, minor };
+  }
+
+  function playChord(name, dur = 1.2){
+    const ch = parseChord(name);
+    if (!ch) return;
+    const ctx = getPlayCtx();
+    const now = ctx.currentTime;
+    const vol = (parseInt(volSlider.value,10)/100) * 0.5;
+    if (vol <= 0) return;
+
+    // voicing: root at ~C3, third, fifth, root up an octave
+    const rootMidi = 48 + ch.rootPc;
+    const midis = [rootMidi, rootMidi + (ch.minor?3:4), rootMidi + 7, rootMidi + 12];
+
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0, now);
+    master.gain.linearRampToValueAtTime(vol, now + 0.03);
+    master.gain.setTargetAtTime(vol*0.6, now + 0.15, 0.3);
+    master.gain.setTargetAtTime(0, now + dur, 0.25);
+    master.connect(ctx.destination);
+
+    midis.forEach((m, i) => {
+      const f = 440 * Math.pow(2, (m-69)/12);
+      [['triangle',1],['sine',0.5]].forEach(([type, g]) => {
+        const osc = ctx.createOscillator();
+        osc.type = type;
+        osc.frequency.value = f * (type==='sine' ? 2 : 1); // sine adds an octave shimmer
+        osc.detune.value = (i%2 ? 3 : -3);
+        const og = ctx.createGain();
+        og.gain.value = g / midis.length;
+        osc.connect(og); og.connect(master);
+        osc.start(now);
+        osc.stop(now + dur + 1.2);
+      });
+    });
+    lastPlayed = name; lastPlayTime = performance.now();
+  }
+
+  // ---- Chord loop (backing track) ----
+  let loopSeq = [], loopPlaying = false, loopIdx = 0, loopTimer = null;
+
+  bpmSlider.addEventListener('input', () => bpmVal.textContent = bpmSlider.value);
+
+  function renderLoop(){
+    if (loopSeq.length === 0){
+      loopChipsEl.innerHTML = '<span class="hint">Add chords here, then press Play Loop and sing over it. Tap a chord in the loop to remove it.</span>';
+      return;
+    }
+    loopChipsEl.innerHTML = loopSeq.map((c, i) =>
+      '<span class="loopChip'+(loopPlaying && i===loopIdx ? ' playing':'')+'" data-i="'+i+'">'+c+'</span>'
+    ).join('');
+  }
+
+  loopChipsEl.addEventListener('click', e => {
+    const chip = e.target.closest('.loopChip');
+    if (!chip) return;
+    loopSeq.splice(parseInt(chip.dataset.i,10), 1);
+    if (loopIdx >= loopSeq.length) loopIdx = 0;
+    if (loopSeq.length === 0) stopLoop();
+    renderLoop();
+  });
+
+  loopAddBtn.addEventListener('click', () => {
+    if (!activeChordName){ return; }
+    if (loopSeq.length < 16){ loopSeq.push(activeChordName); renderLoop(); }
+  });
+
+  loopClearBtn.addEventListener('click', () => { loopSeq = []; stopLoop(); renderLoop(); });
+
+  loopPlayBtn.addEventListener('click', () => loopPlaying ? stopLoop() : startLoop());
+
+  function startLoop(){
+    if (loopSeq.length === 0) return;
+    loopPlaying = true; loopIdx = 0;
+    loopPlayBtn.textContent = '⏹ Stop Loop';
+    loopPlayBtn.classList.add('on');
+    loopStep();
+  }
+
+  function stopLoop(){
+    loopPlaying = false;
+    clearTimeout(loopTimer);
+    loopPlayBtn.textContent = '▶ Play Loop';
+    loopPlayBtn.classList.remove('on');
+    renderLoop();
+  }
+
+  function loopStep(){
+    if (!loopPlaying || loopSeq.length === 0) return;
+    const bpm = parseInt(bpmSlider.value,10);
+    const beats = parseInt(beatsSel.value,10);
+    const secs = beats * 60 / bpm;
+    playChord(loopSeq[loopIdx], Math.max(0.6, secs - 0.15));
+    renderLoop();
+    loopTimer = setTimeout(() => {
+      loopIdx = (loopIdx + 1) % loopSeq.length;
+      loopStep();
+    }, secs * 1000);
+  }
+
+  function chordNameFromTarget(t){
+    const el = t.closest('.pal, .altChord, .name');
+    return el ? el.textContent.trim() : null;
+  }
+  [paletteEl, altEl, chordNowEl.parentElement].forEach(container =>
+    container.addEventListener('click', e => {
+      const name = chordNameFromTarget(e.target);
+      if (name) playChord(name);
+    })
+  );
+
+  // ---- Pitch detection: autocorrelation (ACF2+) ----
+  function detectPitch(buffer, sampleRate){
+    const SIZE = buffer.length;
+    // trim leading/trailing quiet parts
+    let r1 = 0, r2 = SIZE-1, thres = 0.2;
+    for (let i=0; i<SIZE/2; i++) if (Math.abs(buffer[i]) < thres){ r1 = i; break; }
+    for (let i=1; i<SIZE/2; i++) if (Math.abs(buffer[SIZE-i]) < thres){ r2 = SIZE-i; break; }
+    const b = buffer.slice(r1, r2);
+    const N = b.length;
+    if (N < 128) return -1;
+
+    const c = new Float32Array(N);
+    for (let lag=0; lag<N; lag++){
+      let sum = 0;
+      for (let i=0; i<N-lag; i++) sum += b[i]*b[i+lag];
+      c[lag] = sum;
+    }
+
+    let d = 0;
+    while (d < N-1 && c[d] > c[d+1]) d++;
+    let maxval = -1, maxpos = -1;
+    for (let i=d; i<N; i++){
+      if (c[i] > maxval){ maxval = c[i]; maxpos = i; }
+    }
+    if (maxpos <= 0) return -1;
+    let T0 = maxpos;
+
+    // parabolic interpolation
+    const x1 = c[T0-1] || 0, x2 = c[T0], x3 = c[T0+1] || 0;
+    const a = (x1 + x3 - 2*x2)/2, bb = (x3 - x1)/2;
+    if (a) T0 = T0 - bb/(2*a);
+
+    const freq = sampleRate / T0;
+    // reject weak periodicity
+    if (c[maxpos] / c[0] < 0.5) return -1;
+    return freq;
+  }
+})();
+</script>
+</body>
+</html>
