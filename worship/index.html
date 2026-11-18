@@ -65,11 +65,18 @@ footer{color:#aeb8c9;font-size:12px;line-height:1.6;margin-top:23px}#alert{min-h
  <div class="controlrow">
   <label class="control">Key<select id="key"></select></label>
   <label class="control">Worship progression<select id="pattern"><option value="gentle">Gentle worship · I–V–vi–IV</option><option value="prayer">Prayer · I–vi–IV–V</option><option value="rise">Build-up · I–IV–I–V–vi–IV–V–I</option><option value="custom">My pattern · taught chords</option></select></label>
+  <label class="control">Keyboard playing style
+   <select id="playStyle">
+    <option value="sustain" selected>Long, flowing chords · worship</option>
+    <option value="slow">Gentle piano · no repeated notes</option>
+    <option value="arpeggio">Rhythmic piano arpeggios</option>
+   </select>
+  </label>
   <label class="control"><span class="slider-label">Tempo <span><b id="bpmval">68</b> BPM</span></span><input type="range" id="bpm" min="48" max="108" value="68" step="1"></label>
   <label class="control"><span class="slider-label">Piano volume <span id="volval">55%</span></span><input type="range" id="volume" min="0" max="100" value="55" step="1"></label>
  </div>
  <div class="actions"><button class="primary" id="play">▶ Play worship piano</button><button id="stop" disabled>■ Stop</button></div>
- <p class="hint">Try singing: “And the glory must be to the Lord…” over the original chord pattern. Use headphones for the best experience.</p>
+ <p class="hint">Default style plays long, gentle chords instead of repeating “ta-ta-ta” piano notes. Strings and pads sustain without a beat. Try singing: “And the glory must be to the Lord…”</p>
 </section>
 
 
@@ -142,7 +149,7 @@ let ctx, master, compressor, pianoBus, padBus, stringsBus, ambientConvolver, ana
 let step=0, nextTime=0, clock=null, lastChordIdx=0, chordIndex=0, currentVoicing=[], lastVoiceAt=0;
 let sungNotes=[], micLoop=0, lastMicPitch=null, onsetNoteCount=0;
 let customDegrees=[], customBeats=[], nextChordAtStep=0, teaching=false, teachStart=0, recordedMelody=[], tapTimes=[];
-let ambientPlaying=false, ambientVoices=[], ambientSignature='';
+let ambientPlaying=false, ambientVoices=new Map(), ambientSignature='';
 const keySel=$('key');
 NAMES.forEach((name,i)=>{const o=document.createElement('option');o.value=i;o.textContent=name+' major';keySel.appendChild(o)});
 const $keys=$('keyboard');
@@ -235,48 +242,42 @@ function ambientPitches(){
   name:chord.name+' · blended harmony'
  };
 }
+
 function createAmbientVoice(midi,type){
- const when=ctx.currentTime+.01;
+ const when=ctx.currentTime+.015;
  const isPad=type==='pad';
- const level=isPad?.10:.055;
+ const level=isPad?.092:.052;
  const amp=ctx.createGain();
  amp.gain.setValueAtTime(.0001,when);
- amp.gain.exponentialRampToValueAtTime(level,when+(isPad?.65:.95));
+ // Strings bloom rather than strike; pads swell slowly underneath the voice.
+ amp.gain.exponentialRampToValueAtTime(level,when+(isPad?1.25:1.7));
  amp.connect(isPad?padBus:stringsBus);
  const lowpass=ctx.createBiquadFilter();
- lowpass.type='lowpass';lowpass.frequency.value=isPad?850:1350;
- lowpass.Q.value=.5;
+ lowpass.type='lowpass';lowpass.frequency.value=isPad?720:1350;
+ lowpass.Q.value=.45;
  let source=lowpass;
  if(!isPad){
   const highpass=ctx.createBiquadFilter();
-  highpass.type='highpass';highpass.frequency.value=270;
-  highpass.Q.value=.5;
-  highpass.connect(lowpass);
-  source=highpass;
+  highpass.type='highpass';highpass.frequency.value=250;
+  highpass.connect(lowpass);source=highpass;
  }
  lowpass.connect(amp);
  const oscillators=[];
- const parts=isPad?[['sine',0,.88],['triangle',.8,.13]]:[['triangle',0,.83],['sawtooth',.6,.09]];
- parts.forEach(([shape,detune,partialLevel])=>{
-  const oscillator=ctx.createOscillator();
-  const gain=ctx.createGain();
-  oscillator.type=shape;
-  oscillator.frequency.value=pitch(midi);
-  oscillator.detune.value=detune;
-  gain.gain.value=partialLevel;
-  oscillator.connect(gain);gain.connect(source);
-  oscillator.start(when);oscillators.push(oscillator);
- });
- return ()=>{
-  const t=ctx.currentTime;
-  if(typeof amp.gain.cancelAndHoldAtTime==='function'){
-   amp.gain.cancelAndHoldAtTime(t);
-  }else{
-   amp.gain.cancelScheduledValues(t);
-   amp.gain.setValueAtTime(level,t);
+ const parts=isPad?[['sine',0,.9],['triangle',.8,.12]]:[['triangle',0,.82],['sawtooth',.5,.08]];
+ for(const [shape,detune,partialLevel] of parts){
+  const o=ctx.createOscillator(),g=ctx.createGain();
+  o.type=shape;o.frequency.setValueAtTime(pitch(midi),when);o.detune.value=detune;g.gain.value=partialLevel;
+  o.connect(g);g.connect(source);o.start(when);oscillators.push(o);
+ }
+ return {
+  stop(){
+   const t=ctx.currentTime;
+   if(typeof amp.gain.cancelAndHoldAtTime==='function')amp.gain.cancelAndHoldAtTime(t);
+   else {amp.gain.cancelScheduledValues(t);amp.gain.setValueAtTime(level*.7,t)}
+   // Release after the next chord has started swelling, for legato transitions.
+   amp.gain.exponentialRampToValueAtTime(.0001,t+1.9);
+   for(const o of oscillators){try{o.stop(t+2.05)}catch(e){}}
   }
-  amp.gain.exponentialRampToValueAtTime(.0001,t+.85);
-  oscillators.forEach(o=>{try{o.stop(t+1.1)}catch(e){}});
  };
 }
 function refreshAtmosphere(force=false){
@@ -285,11 +286,17 @@ function refreshAtmosphere(force=false){
  const signature=$('ambientMode').value+':'+playing+':'+sound.pad.join(',')+':'+sound.strings.join(',');
  if(!force&&signature===ambientSignature)return;
  ambientSignature=signature;
- const old=ambientVoices;ambientVoices=[];
- sound.pad.forEach(note=>ambientVoices.push(createAmbientVoice(note,'pad')));
- sound.strings.forEach(note=>ambientVoices.push(createAmbientVoice(note,'strings')));
- old.forEach(release=>release());
- $('ambientStatus').textContent='● Atmosphere playing · '+sound.name;
+ const required=new Map();
+ for(const n of sound.pad)required.set('pad:'+n,{midi:n,type:'pad'});
+ for(const n of sound.strings)required.set('strings:'+n,{midi:n,type:'strings'});
+ // Notes common to successive chords remain sounding. No retrigger or pulsing.
+ for(const [key,voice] of ambientVoices){
+  if(!required.has(key)){voice.stop();ambientVoices.delete(key)}
+ }
+ for(const [key,note] of required){
+  if(!ambientVoices.has(key))ambientVoices.set(key,createAmbientVoice(note.midi,note.type));
+ }
+ $('ambientStatus').textContent='● Sustained, blended atmosphere · '+sound.name;
 }
 
 function startAtmosphere(){
@@ -304,30 +311,38 @@ function startAtmosphere(){
 }
 function stopAtmosphere(){
  ambientPlaying=false;ambientSignature='';
- ambientVoices.forEach(release=>release());ambientVoices=[];
+ ambientVoices.forEach(voice=>voice.stop());ambientVoices.clear();
  $('startAmbience').disabled=false;$('stopAmbience').disabled=true;
  $('ambientStatus').textContent='Atmosphere is off.';
 }
 
 function tone(midi,when,duration=1.5,velocity=.5,kind='piano'){
  if(!ctx)return;
- const g=ctx.createGain();g.gain.value=0;g.connect(pianoBus);
+ const warm=kind==='warm';
+ const g=ctx.createGain();
+ g.gain.value=0;g.connect(pianoBus);
  const freq=pitch(midi);
- const partials=kind==='pad'?[[1,.72],[1.005,.28]]:[[1,.72],[2,.19],[3,.09]];
- const attack=kind==='pad'?.3:.012;
- const release=kind==='pad'?2.0:Math.min(3.0,duration+1.4);
- const level=velocity*(kind==='pad'?.11:.22);
+ const partials=warm?[[1,.91],[2,.08]]:[[1,.72],[2,.19],[3,.09]];
+ const attack=warm?.24:.012;
+ const level=velocity*(warm?.16:.22);
  g.gain.setValueAtTime(.0001,when);
  g.gain.exponentialRampToValueAtTime(Math.max(.0002,level),when+attack);
- if(kind==='pad'){
-    g.gain.setTargetAtTime(Math.max(.0002,level*.7),when+attack,.8);
-    g.gain.setTargetAtTime(.0001,when+duration,.65);
+ if(warm){
+  g.gain.setTargetAtTime(Math.max(.0002,level*.72),when+attack,1.7);
+  g.gain.setTargetAtTime(.0001,when+duration,1.1);
  }else{
-    g.gain.exponentialRampToValueAtTime(Math.max(.0002,level*.48),when+.3);
-    g.gain.exponentialRampToValueAtTime(.0001,when+release);
+  g.gain.exponentialRampToValueAtTime(Math.max(.0002,level*.48),when+.3);
+  g.gain.exponentialRampToValueAtTime(.0001,when+Math.max(.5,Math.min(3.0,duration+1.4)));
  }
- partials.forEach(([mult,amp],i)=>{const o=ctx.createOscillator();o.type=kind==='pad'?(i===0?'sine':'triangle'):'sine';o.frequency.setValueAtTime(freq*mult,when);const p=ctx.createGain();p.gain.value=amp;o.connect(p);p.connect(g);o.start(when);o.stop(when+Math.max(release,duration+2.5)+.2)});
+ partials.forEach(([mult,amp],i)=>{
+  const o=ctx.createOscillator();o.type=warm?'sine':'sine';
+  o.frequency.setValueAtTime(freq*mult,when);
+  const p=ctx.createGain();p.gain.value=amp;
+  o.connect(p);p.connect(g);o.start(when);
+  o.stop(when+(warm?duration+5:Math.max(3.0,duration+2.5)));
+ });
 }
+
 function pianoVoicing(chord){
  let base=60+((chord.root-0+12)%12); // center octave for stable chord voicing
  let notes=[base,base+((chord.pcs[1]-chord.root+12)%12),base+((chord.pcs[2]-chord.root+12)%12)];
@@ -438,13 +453,15 @@ function beginBar(when,beatLength){
  const sequence=PATTERNS[$('pattern').value];
  if(step>0)chordIndex=chooseFollowIndex();
  let chord=chordForDegree(sequence[chordIndex]);
- const beats=($('pattern').value==='custom'&&customDegrees.length)?(customBeats[chordIndex]||4):4;
+ const style=$('playStyle').value;
+ const beats=($('pattern').value==='custom'&&customDegrees.length)?(customBeats[chordIndex]||4):(style==='sustain'?8:4);
  nextChordAtStep=step+2*beats;
  let notes=pianoVoicing(chord);currentVoicing=notes;
  let bass=36+chord.root;
  if(bass>48)bass-=12;
- tone(bass,when,beatLength*Math.max(1,beats-.6),.48,'piano');
- notes.forEach((n,i)=>tone(n,when+.04+i*.045,beatLength*Math.max(1,beats-.5),.45,'piano'));
+ const warm=style==='sustain';
+ tone(bass,when,beatLength*Math.max(1,beats-.5),warm?.20:.38,warm?'warm':'piano');
+ notes.forEach((n,i)=>tone(n,when+.05+i*.04,beatLength*Math.max(1,beats-.3),warm?.26:.40,warm?'warm':'piano'));
  if(ambientPlaying&&shouldFollowAmbientHarmony())refreshAtmosphere();
  setChordUI();
 }
@@ -456,7 +473,7 @@ function schedule(){
   const beat=60/Number($('bpm').value);
   if(step>=nextChordAtStep)beginBar(nextTime,beat);
   const ch=chordForDegree(PATTERNS[$('pattern').value][chordIndex]);
-  if(step%2===0){const notes=currentVoicing.length?currentVoicing:pianoVoicing(ch);const arp=[0,1,2,1];const idx=arp[(step/2)%4];tone(notes[idx]+(step%8===6?12:0),nextTime+.02,beat*.9,.16,'piano')}
+  if($('playStyle').value==='arpeggio' && step%2===0){const notes=currentVoicing.length?currentVoicing:pianoVoicing(ch);const arp=[0,1,2,1];const idx=arp[(step/2)%4];tone(notes[idx]+(step%8===6?12:0),nextTime+.02,beat*.9,.13,'piano')}
   nextTime+=beat/2;step++;
  }
 }
@@ -521,7 +538,8 @@ $('ambientMode').addEventListener('change',()=>refreshAtmosphere(true));
 $('bpm').addEventListener('input',e=>$('bpmval').textContent=e.target.value);
 $('volume').addEventListener('input',e=>{$('volval').textContent=e.target.value+'%';if(ctx&&pianoBus&&playing)pianoBus.gain.setTargetAtTime(Number(e.target.value)/100*.68,ctx.currentTime,.05)});
 keySel.addEventListener('change',()=>{currentVoicing=[];renderPads();renderSequence();setChordUI();refreshAtmosphere(true)});
-$('pattern').addEventListener('change',()=>{chordIndex=0;currentVoicing=[];setChordUI();refreshAtmosphere(true)});
+$('pattern').addEventListener('change',()=>{if(playing)stop();chordIndex=0;currentVoicing=[];setChordUI();refreshAtmosphere(true)});
+$('playStyle').addEventListener('change',()=>{if(playing){stop();start()} });
 $('useCustom').addEventListener('click',()=>{
  if(!customDegrees.length){$('teachStatus').textContent='Tap at least one chord first, or record a melody.';return}
  if(teaching)stopTeaching();
