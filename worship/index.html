@@ -37,6 +37,16 @@ footer{color:#aeb8c9;font-size:12px;line-height:1.6;margin-top:23px}#alert{min-h
 #teachRecord.recording{background:#aa444f;color:white;border-color:#e4a1a7;animation:pulse 1s ease-in-out infinite alternate}
 @keyframes pulse{from{opacity:1}to{opacity:.7}}
 @media(max-width:440px){.padgrid{grid-template-columns:repeat(3,minmax(0,1fr))}.teach-actions button{flex:1 1 42%}}
+
+/* Standalone atmospheric worship pad and string ensemble */
+.ambientgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.ambientcard{background:#101b2b;border:1px solid #43536b;border-radius:13px;padding:14px}
+.ambientcard h3{margin:0 0 6px;font-size:18px}
+.ambientcard p{color:var(--muted);font-size:12px;margin:0 0 12px}
+.ambienttitle{display:flex;justify-content:space-between;gap:10px;align-items:center}
+.ambienttag{font-size:11px;background:#284f4b;color:#a3efe0;padding:4px 8px;border-radius:30px}
+.ambientstate{color:var(--mint);font-size:13px;margin:11px 0 0;min-height:19px}
+@media(max-width:500px){.ambientgrid{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -62,6 +72,31 @@ footer{color:#aeb8c9;font-size:12px;line-height:1.6;margin-top:23px}#alert{min-h
  <p class="hint">Try singing: “And the glory must be to the Lord…” over the original chord pattern. Use headphones for the best experience.</p>
 </section>
 
+
+<section class="panel" id="atmospherePanel" aria-label="Worship pad and strings">
+ <div class="eyebrow">NEW · Worship atmosphere</div>
+ <h2 style="font-size:25px;line-height:1.2;margin:8px 0 7px">Continuous Pads &amp; Strings</h2>
+ <p class="teach-intro">Start a soft atmosphere and sing freely. Pads and strings play independently of the piano: you can stop the piano without stopping the atmosphere.</p>
+ <div class="ambientgrid">
+  <div class="ambientcard">
+   <div class="ambienttitle"><h3>🌫 Worship pad</h3><span class="ambienttag">Continuous</span></div>
+   <p>Airy, slowly swelling background for prayer and intimate worship.</p>
+   <label class="control"><span class="slider-label">Pad level <span id="padVolLabel">50%</span></span><input id="padVolume" type="range" min="0" max="100" value="50"></label>
+  </div>
+  <div class="ambientcard">
+   <div class="ambienttitle"><h3>🎻 Worship strings</h3><span class="ambienttag">Emotional</span></div>
+   <p>Soft string ensemble-like chords that swell under the voice.</p>
+   <label class="control"><span class="slider-label">Strings level <span id="stringsVolLabel">30%</span></span><input id="stringsVolume" type="range" min="0" max="100" value="30"></label>
+  </div>
+ </div>
+ <label class="control" style="margin-top:16px">Pad harmony<select id="ambientMode">
+  <option value="key">Hold one key · constant worship atmosphere</option>
+  <option value="chords">Follow piano chords · smooth transitions</option>
+ </select></label>
+ <div class="actions"><button class="primary" id="startAmbience">▶ Start worship atmosphere</button><button id="stopAmbience" disabled>■ Stop atmosphere</button></div>
+ <p id="ambientStatus" role="status" class="ambientstate">Atmosphere is off.</p>
+ <p class="hint">Start the pad first, then sing. Add the piano only if you want it. Choose your singing key above and wear headphones when using the microphone.</p>
+</section>
 <section class="panel" id="teachPanel" aria-label="Teach your pattern">
  <div class="eyebrow">NEW · Teach my pattern</div>
  <h2 style="font-size:24px;line-height:1.2;margin:8px 0">Play your own worship pattern</h2>
@@ -102,10 +137,11 @@ const NAMES=['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
 const SCALE=[0,2,4,5,7,9,11];
 const PATTERNS={gentle:[0,4,5,3],prayer:[0,5,3,4],rise:[0,3,0,4,5,3,4,0],custom:[0]};
 const QUALITY=['','m','m','','','m','dim'];
-let ctx, master, compressor, analyser, micStream, micSource, micEnabled=false, playing=false;
+let ctx, master, compressor, pianoBus, padBus, stringsBus, ambientConvolver, analyser, micStream, micSource, micEnabled=false, playing=false;
 let step=0, nextTime=0, clock=null, lastChordIdx=0, chordIndex=0, currentVoicing=[], lastVoiceAt=0;
 let sungNotes=[], micLoop=0, lastMicPitch=null, onsetNoteCount=0;
 let customDegrees=[], customBeats=[], nextChordAtStep=0, teaching=false, teachStart=0, recordedMelody=[], tapTimes=[];
+let ambientPlaying=false, ambientVoices=[], ambientSignature='';
 const keySel=$('key');
 NAMES.forEach((name,i)=>{const o=document.createElement('option');o.value=i;o.textContent=name+' major';keySel.appendChild(o)});
 const $keys=$('keyboard');
@@ -126,12 +162,115 @@ function setChordUI(){
  for(const k of $keys.children)k.classList.toggle('on',chord.pcs.includes((Number(k.dataset.pc)+Number(keySel.value)*0)%12));
 }
 function initAudio(){
- if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();compressor=ctx.createDynamicsCompressor();compressor.threshold.value=-20;compressor.ratio.value=3;compressor.attack.value=.005;compressor.release.value=.26;master=ctx.createGain();master.gain.value=Number($('volume').value)/100*.62;compressor.connect(master);master.connect(ctx.destination)}
+ if(!ctx){
+  const Ctx=window.AudioContext||window.webkitAudioContext;
+  if(!Ctx)throw new Error('Your browser does not support Web Audio');
+  ctx=new Ctx();
+  compressor=ctx.createDynamicsCompressor();
+  compressor.threshold.value=-20;compressor.ratio.value=3;
+  compressor.attack.value=.005;compressor.release.value=.26;
+  master=ctx.createGain();master.gain.value=Number($('volume').value)/100*.62;
+  compressor.connect(master);master.connect(ctx.destination);
+  pianoBus=ctx.createGain();pianoBus.gain.value=1;pianoBus.connect(compressor);
+  const ambienceDry=ctx.createGain();
+  ambienceDry.gain.value=.58;ambienceDry.connect(compressor);
+  const ambienceInput=ctx.createGain();
+  ambienceInput.connect(ambienceDry);
+  padBus=ctx.createGain();padBus.gain.value=Number($('padVolume').value)/100;
+  stringsBus=ctx.createGain();stringsBus.gain.value=Number($('stringsVolume').value)/100;
+  padBus.connect(ambienceInput);stringsBus.connect(ambienceInput);
+  const buffer=ctx.createBuffer(2,Math.floor(ctx.sampleRate*2.5),ctx.sampleRate);
+  for(let c=0;c<2;c++){
+   const out=buffer.getChannelData(c);
+   for(let i=0;i<out.length;i++){const t=i/ctx.sampleRate;out[i]=(Math.random()*2-1)*Math.exp(-t*2.4)*.22;}
+  }
+  ambientConvolver=ctx.createConvolver();
+  ambientConvolver.buffer=buffer;
+  const wet=ctx.createGain();wet.gain.value=.38;
+  ambienceInput.connect(ambientConvolver);
+  ambientConvolver.connect(wet);wet.connect(compressor);
+ }
  if(ctx.state==='suspended')ctx.resume();
 }
+
+// Independent, user-controlled ambient synthesizer. The "hold key" option uses
+// an open tonic/fifth/ninth voicing rather than a repeating piano progression.
+function ambientPitches(){
+ const root=Number(keySel.value);
+ if($('ambientMode').value==='key'){
+  return {notes:[48+root,55+root,60+root,62+root],name:NAMES[root]+' open pad'};
+ }
+ const seq=PATTERNS[$('pattern').value];
+ const chord=chordForDegree(seq[chordIndex%seq.length]);
+ const third=(chord.pcs[1]-chord.root+12)%12;
+ const fifth=(chord.pcs[2]-chord.root+12)%12;
+ return {notes:[48+chord.root,48+chord.root+fifth,60+chord.root,60+chord.root+third],name:chord.name};
+}
+function createAmbientVoice(midi,type){
+ const when=ctx.currentTime+.02;
+ const amp=ctx.createGain();
+ const isPad=type==='pad';
+ const level=isPad?.22:.13;
+ amp.gain.setValueAtTime(.0001,when);
+ amp.gain.exponentialRampToValueAtTime(level,when+(isPad?1.8:.9));
+ amp.connect(isPad?padBus:stringsBus);
+ const lowpass=ctx.createBiquadFilter();
+ lowpass.type='lowpass';lowpass.frequency.value=isPad?1250:1750;
+ lowpass.Q.value=.55;
+ lowpass.connect(amp);
+ const oscillators=[];
+ const parts=isPad?[['sine',-.9,.70],['triangle',1.7,.27],['sine',6,.16]]:[['sawtooth',-5,.30],['triangle',4,.49],['sawtooth',8,.18]];
+ parts.forEach(([shape,detune,level])=>{
+  const oscillator=ctx.createOscillator();
+  const gain=ctx.createGain();
+  oscillator.type=shape;
+  oscillator.frequency.setValueAtTime(pitch(midi),when);
+  oscillator.detune.value=detune;
+  gain.gain.value=level;
+  oscillator.connect(gain);
+  gain.connect(lowpass);
+  oscillator.start(when);
+  oscillators.push(oscillator);
+ });
+ return ()=>{
+  const t=ctx.currentTime;
+  amp.gain.cancelScheduledValues(t);
+  amp.gain.setTargetAtTime(.0001,t,isPad?.65:.48);
+  oscillators.forEach(o=>{try{o.stop(t+3.5)}catch(e){}});
+ };
+}
+function refreshAtmosphere(force=false){
+ if(!ambientPlaying||!ctx)return;
+ const sound=ambientPitches();
+ const signature=$('ambientMode').value+':'+sound.notes.join(',');
+ if(!force&&signature===ambientSignature)return;
+ ambientSignature=signature;
+ const old=ambientVoices;ambientVoices=[];
+ sound.notes.forEach(midi=>ambientVoices.push(createAmbientVoice(midi,'pad')));
+ [sound.notes[0],sound.notes[1],sound.notes[2]].forEach(midi=>ambientVoices.push(createAmbientVoice(midi-0,'strings')));
+ old.forEach(release=>release());
+ $('ambientStatus').textContent='● Atmosphere playing · '+sound.name;
+}
+function startAtmosphere(){
+ try{
+  initAudio();
+  if(ambientPlaying)return;
+  ambientPlaying=true;
+  $('startAmbience').disabled=true;$('stopAmbience').disabled=false;
+  refreshAtmosphere(true);
+  $('alert').textContent='';
+ }catch(e){$('ambientStatus').textContent='Could not start atmosphere: '+e.message;}
+}
+function stopAtmosphere(){
+ ambientPlaying=false;ambientSignature='';
+ ambientVoices.forEach(release=>release());ambientVoices=[];
+ $('startAmbience').disabled=false;$('stopAmbience').disabled=true;
+ $('ambientStatus').textContent='Atmosphere is off.';
+}
+
 function tone(midi,when,duration=1.5,velocity=.5,kind='piano'){
  if(!ctx)return;
- const g=ctx.createGain();g.gain.value=0;g.connect(compressor);
+ const g=ctx.createGain();g.gain.value=0;g.connect(pianoBus);
  const freq=pitch(midi);
  const partials=kind==='pad'?[[1,.72],[1.005,.28]]:[[1,.72],[2,.19],[3,.09]];
  const attack=kind==='pad'?.3:.012;
@@ -212,7 +351,7 @@ function renderSequence(){
 function applyCustom(message){
  PATTERNS.custom=customDegrees.length?customDegrees.slice():[0];
  $('pattern').value='custom';chordIndex=0;currentVoicing=[];nextChordAtStep=0;
- renderSequence();setChordUI();
+ renderSequence();setChordUI();refreshAtmosphere(true);
  if(message)$('teachStatus').textContent=message;
 }
 function stopTeaching(){
@@ -265,7 +404,7 @@ function beginBar(when,beatLength){
  if(bass>48)bass-=12;
  tone(bass,when,beatLength*Math.max(1,beats-.6),.48,'piano');
  notes.forEach((n,i)=>tone(n,when+.04+i*.045,beatLength*Math.max(1,beats-.5),.45,'piano'));
- notes.forEach(n=>tone(n-12,when,beatLength*beats,.33,'pad'));
+ if(ambientPlaying&&$('ambientMode').value==='chords')refreshAtmosphere();
  setChordUI();
 }
 function schedule(){
@@ -280,10 +419,10 @@ function schedule(){
   nextTime+=beat/2;step++;
  }
 }
-function start(){try{initAudio();if(playing)return;master.gain.cancelScheduledValues(ctx.currentTime);master.gain.setTargetAtTime(Number($('volume').value)/100*.62,ctx.currentTime,.05);playing=true;step=0;nextChordAtStep=0;chordIndex=0;currentVoicing=[];nextTime=ctx.currentTime+.1;$('play').disabled=true;$('stop').disabled=false;$('status').textContent='● Accompanying';$('status').classList.remove('off');clock=setInterval(schedule,40);schedule();setChordUI();$('alert').textContent=''}catch(e){$('alert').textContent='Could not start audio: '+e.message}}
-function stop(){playing=false;if(clock)clearInterval(clock);clock=null;step=0;nextChordAtStep=0;chordIndex=0;currentVoicing=[];$('play').disabled=false;$('stop').disabled=true;$('status').textContent='Not playing';$('status').classList.add('off');setChordUI();if(ctx){ // Fade old notes out and re-create the audio graph safely.
- master.gain.cancelScheduledValues(ctx.currentTime);master.gain.setTargetAtTime(.0001,ctx.currentTime,.055);
- setTimeout(()=>{if(!playing&&ctx)master.gain.setTargetAtTime(Number($('volume').value)/100*.62,ctx.currentTime,.08)},550)
+function start(){try{initAudio();if(playing)return;pianoBus.gain.cancelScheduledValues(ctx.currentTime);pianoBus.gain.setTargetAtTime(1,ctx.currentTime,.05);playing=true;step=0;nextChordAtStep=0;chordIndex=0;currentVoicing=[];nextTime=ctx.currentTime+.1;$('play').disabled=true;$('stop').disabled=false;$('status').textContent='● Accompanying';$('status').classList.remove('off');clock=setInterval(schedule,40);schedule();setChordUI();$('alert').textContent=''}catch(e){$('alert').textContent='Could not start audio: '+e.message}}
+function stop(){playing=false;if(clock)clearInterval(clock);clock=null;step=0;nextChordAtStep=0;chordIndex=0;currentVoicing=[];$('play').disabled=false;$('stop').disabled=true;$('status').textContent='Not playing';$('status').classList.add('off');setChordUI();if(ctx&&pianoBus){ // Stop only the piano; atmosphere stays on.
+ pianoBus.gain.cancelScheduledValues(ctx.currentTime);
+ pianoBus.gain.setTargetAtTime(.0001,ctx.currentTime,.055);
 }}
 function detectPitch(buffer,sampleRate){
  let rms=0;const n=2048;for(let i=0;i<n;i++){const x=buffer[i*2];rms+=x*x}rms=Math.sqrt(rms/n);
@@ -326,10 +465,22 @@ async function toggleMic(){
  catch(e){$('alert').textContent='Microphone permission failed: '+(e.message||e.name)+'. In Chrome, tap the padlock/settings icon near the address, open Site settings → Microphone → Allow, then reload. Make sure this page is opened directly via HTTPS, not in a ChatGPT preview.'}
 }
 $('play').addEventListener('click',start);$('stop').addEventListener('click',stop);$('mic').addEventListener('click',toggleMic);
+
+$('startAmbience').addEventListener('click',startAtmosphere);
+$('stopAmbience').addEventListener('click',stopAtmosphere);
+$('padVolume').addEventListener('input',e=>{
+ $('padVolLabel').textContent=e.target.value+'%';
+ if(ctx&&padBus)padBus.gain.setTargetAtTime(Number(e.target.value)/100,ctx.currentTime,.08);
+});
+$('stringsVolume').addEventListener('input',e=>{
+ $('stringsVolLabel').textContent=e.target.value+'%';
+ if(ctx&&stringsBus)stringsBus.gain.setTargetAtTime(Number(e.target.value)/100,ctx.currentTime,.08);
+});
+$('ambientMode').addEventListener('change',()=>refreshAtmosphere(true));
 $('bpm').addEventListener('input',e=>$('bpmval').textContent=e.target.value);
 $('volume').addEventListener('input',e=>{$('volval').textContent=e.target.value+'%';if(ctx&&master&&playing)master.gain.setTargetAtTime(Number(e.target.value)/100*.62,ctx.currentTime,.05)});
-keySel.addEventListener('change',()=>{currentVoicing=[];renderPads();renderSequence();setChordUI()});
-$('pattern').addEventListener('change',()=>{chordIndex=0;currentVoicing=[];setChordUI()});
+keySel.addEventListener('change',()=>{currentVoicing=[];renderPads();renderSequence();setChordUI();refreshAtmosphere(true)});
+$('pattern').addEventListener('change',()=>{chordIndex=0;currentVoicing=[];setChordUI();refreshAtmosphere(true)});
 $('useCustom').addEventListener('click',()=>{
  if(!customDegrees.length){$('teachStatus').textContent='Tap at least one chord first, or record a melody.';return}
  if(teaching)stopTeaching();
