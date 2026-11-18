@@ -20,6 +20,23 @@ h1{font-size:clamp(34px,6vw,51px);line-height:1.1;letter-spacing:-2px;margin:10p
 .micstate{display:flex;align-items:center;gap:17px;margin:13px 0 5px;flex-wrap:wrap}.note{font-size:30px;font-weight:800;color:var(--mint);min-width:80px}.meters{height:9px;background:#0f1827;flex:1;min-width:80px;border-radius:10px;overflow:hidden;border:1px solid #32445c}.meterfill{height:100%;width:0;background:linear-gradient(90deg,var(--mint),var(--gold));border-radius:10px;transition:width .12s}.hint{font-size:13px;color:var(--muted);margin:9px 0 0}.helper{border-top:1px solid #334458;margin-top:19px;padding-top:14px;font-size:13px;color:var(--muted)}.helper strong{color:var(--text)}.toggle{display:flex;align-items:center;gap:9px;color:var(--text);font-size:14px;font-weight:600;margin-top:12px}.toggle input{accent-color:var(--gold);width:18px;height:18px}
 footer{color:#aeb8c9;font-size:12px;line-height:1.6;margin-top:23px}#alert{min-height:19px;color:var(--rose);font-size:13px;margin:10px 0 0}
 @media (max-width:450px){.panel{padding:16px}.actions button{width:100%}.controlrow{grid-template-columns:1fr}.progress{gap:5px}.prog{font-size:13px}}
+
+/* Teach-my-pattern controls */
+.teach-intro{color:var(--muted);font-size:14px;margin:8px 0 17px}
+.padgrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:13px 0 17px}
+.padgrid button{padding:14px 5px;border-radius:12px;background:#283e55;color:var(--gold);font-size:18px;min-width:0}
+.padgrid button small{display:block;font-size:11px;color:#cfdae4;font-weight:500}
+.customseq{min-height:47px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:9px;border-radius:12px;background:#101b2b;border:1px solid #405066}
+.customseq button{border-radius:10px;padding:9px 12px;background:#31465b;color:var(--text);font-size:14px}
+.customseq button small{display:block;color:#b9c6d6;font-size:10px}
+.teach-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.teach-actions button{flex:1;min-width:100px}
+.teach-actions select{width:auto;min-width:120px}
+.teach-actions label{display:flex;flex-direction:column;gap:3px;color:var(--muted);font-size:12px}
+#teachStatus{font-size:13px;color:var(--mint);min-height:20px;margin-top:10px}
+#teachRecord.recording{background:#aa444f;color:white;border-color:#e4a1a7;animation:pulse 1s ease-in-out infinite alternate}
+@keyframes pulse{from{opacity:1}to{opacity:.7}}
+@media(max-width:440px){.padgrid{grid-template-columns:repeat(3,minmax(0,1fr))}.teach-actions button{flex:1 1 42%}}
 </style>
 </head>
 <body>
@@ -37,12 +54,36 @@ footer{color:#aeb8c9;font-size:12px;line-height:1.6;margin-top:23px}#alert{min-h
 <section class="panel" aria-label="Accompaniment controls">
  <div class="controlrow">
   <label class="control">Key<select id="key"></select></label>
-  <label class="control">Worship progression<select id="pattern"><option value="gentle">Gentle worship · I–V–vi–IV</option><option value="prayer">Prayer · I–vi–IV–V</option><option value="rise">Build-up · I–IV–I–V–vi–IV–V–I</option></select></label>
+  <label class="control">Worship progression<select id="pattern"><option value="gentle">Gentle worship · I–V–vi–IV</option><option value="prayer">Prayer · I–vi–IV–V</option><option value="rise">Build-up · I–IV–I–V–vi–IV–V–I</option><option value="custom">My pattern · taught chords</option></select></label>
   <label class="control"><span class="slider-label">Tempo <span><b id="bpmval">68</b> BPM</span></span><input type="range" id="bpm" min="48" max="108" value="68" step="1"></label>
   <label class="control"><span class="slider-label">Keyboard volume <span id="volval">55%</span></span><input type="range" id="volume" min="0" max="100" value="55" step="1"></label>
  </div>
  <div class="actions"><button class="primary" id="play">▶ Play worship piano</button><button id="stop" disabled>■ Stop</button></div>
  <p class="hint">Try singing: “And the glory must be to the Lord…” over the original chord pattern. Use headphones for the best experience.</p>
+</section>
+
+<section class="panel" id="teachPanel" aria-label="Teach your pattern">
+ <div class="eyebrow">NEW · Teach my pattern</div>
+ <h2 style="font-size:24px;line-height:1.2;margin:8px 0">Play your own worship pattern</h2>
+ <p class="teach-intro">Pick your key above. Tap chord buttons in the order you want the keyboard to play. Each tap plays that chord as a preview and adds it to your loop. You can also <strong>sing a melody</strong> for an approximate chord suggestion.</p>
+ <div class="label" style="color:var(--muted);font-weight:700;font-size:12px">TAP CHORDS TO BUILD A PROGRESSION</div>
+ <div id="chordPads" class="padgrid" aria-label="Chord pads"></div>
+ <div class="topline"><strong>My chord pattern</strong><span class="hint">Tap a saved chord to remove it</span></div>
+ <div id="customSeq" class="customseq" aria-live="polite"><span class="hint">No chords yet. Tap the buttons above.</span></div>
+ <div class="teach-actions">
+  <label>Length per chord<select id="chordLength"><option value="4">4 beats</option><option value="2">2 beats</option><option value="8">8 beats</option></select></label>
+  <button id="undoCustom">↩ Undo</button>
+  <button id="clearCustom">Clear</button>
+  <button id="useCustom" class="primary">▶ Play my pattern</button>
+ </div>
+ <div class="helper">
+  <strong>Or teach by singing:</strong> Press Record, sing a short melody into your microphone, then press Finish. We estimate a matching chord progression in your selected key and tempo. You can edit the guesses using the chord buttons above.
+ </div>
+ <div class="teach-actions">
+  <button id="teachRecord">🎙 Record my melody</button>
+  <button id="tapTempo">♩ Tap my tempo</button>
+ </div>
+ <p id="teachStatus" role="status">Your pattern stays on this device. Sing with the piano stopped for better detection.</p>
 </section>
 <section class="panel" aria-label="Listen to singer">
  <div class="topline"><div><div class="eyebrow">Experiment</div><h2 style="font-size:22px;margin:6px 0 0">Listen to my singing</h2></div><button id="mic">🎙 Enable mic</button></div>
@@ -59,11 +100,12 @@ footer{color:#aeb8c9;font-size:12px;line-height:1.6;margin-top:23px}#alert{min-h
 const $=id=>document.getElementById(id);
 const NAMES=['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
 const SCALE=[0,2,4,5,7,9,11];
-const PATTERNS={gentle:[0,4,5,3],prayer:[0,5,3,4],rise:[0,3,0,4,5,3,4,0]};
+const PATTERNS={gentle:[0,4,5,3],prayer:[0,5,3,4],rise:[0,3,0,4,5,3,4,0],custom:[0]};
 const QUALITY=['','m','m','','','m','dim'];
 let ctx, master, compressor, analyser, micStream, micSource, micEnabled=false, playing=false;
 let step=0, nextTime=0, clock=null, lastChordIdx=0, chordIndex=0, currentVoicing=[], lastVoiceAt=0;
 let sungNotes=[], micLoop=0, lastMicPitch=null, onsetNoteCount=0;
+let customDegrees=[], customBeats=[], nextChordAtStep=0, teaching=false, teachStart=0, recordedMelody=[], tapTimes=[];
 const keySel=$('key');
 NAMES.forEach((name,i)=>{const o=document.createElement('option');o.value=i;o.textContent=name+' major';keySel.appendChild(o)});
 const $keys=$('keyboard');
@@ -134,16 +176,95 @@ function chooseFollowIndex(){
  const nowScore=score(now), nextScore=score(next);
  return nowScore>nextScore+.28 && nowScore>.5 && (step%16!==0)?now:next;
 }
+
+function renderPads(){
+ const pads=$('chordPads');pads.innerHTML='';
+ for(let d=0;d<7;d++){
+   const ch=chordForDegree(d);
+   const b=document.createElement('button');b.type='button';
+   b.innerHTML=ch.name+'<small>'+['I','ii','iii','IV','V','vi','vii°'][d]+'</small>';
+   b.setAttribute('aria-label','Add '+ch.name+' chord');
+   b.addEventListener('click',()=>{
+     if(teaching)stopTeaching();
+     if(playing)stop();
+     initAudio();
+     const notes=pianoVoicing(ch);
+     notes.forEach((n,i)=>tone(n,ctx.currentTime+.025*i,1.2,.47,'piano'));
+     customDegrees.push(d);customBeats.push(Number($('chordLength').value));
+     applyCustom('Added '+ch.name+'. Tap Play my pattern when ready.');
+   });
+   pads.appendChild(b);
+ }
+}
+function renderSequence(){
+ const target=$('customSeq');target.innerHTML='';
+ if(!customDegrees.length){const p=document.createElement('span');p.className='hint';p.textContent='No chords yet. Tap the buttons above.';target.appendChild(p);return}
+ customDegrees.forEach((d,i)=>{
+   const b=document.createElement('button');b.type='button';
+   const ch=chordForDegree(d);
+   b.innerHTML=ch.name+' <small>'+customBeats[i]+' beats ×</small>';
+   b.title='Remove chord '+ch.name;
+   b.addEventListener('click',()=>{if(playing)stop();customDegrees.splice(i,1);customBeats.splice(i,1);applyCustom('Removed '+ch.name);});
+   target.appendChild(b);
+ });
+}
+function applyCustom(message){
+ PATTERNS.custom=customDegrees.length?customDegrees.slice():[0];
+ $('pattern').value='custom';chordIndex=0;currentVoicing=[];nextChordAtStep=0;
+ renderSequence();setChordUI();
+ if(message)$('teachStatus').textContent=message;
+}
+function stopTeaching(){
+ teaching=false;$('teachRecord').classList.remove('recording');
+ $('teachRecord').textContent='🎙 Record my melody';
+ const total=Math.min(45000,Date.now()-teachStart);
+ const samples=recordedMelody.slice();
+ if(samples.length<6){$('teachStatus').textContent='Could not detect enough clear notes. Try singing louder or use the chord buttons.';return}
+ const barMillis=4*60000/Number($('bpm').value);
+ const barCount=Math.min(16,Math.max(1,Math.ceil(total/barMillis)));
+ const degrees=[],durations=[];
+ for(let i=0;i<barCount;i++){
+   const a=teachStart+i*barMillis,b=a+barMillis;
+   const frames=samples.filter(n=>n.at>=a&&n.at<b);
+   if(frames.length<3){if(degrees.length){degrees.push(degrees[degrees.length-1]);durations.push(4)}continue}
+   let best=0,bestScore=-1e6;
+   for(let d=0;d<7;d++){
+     const pcs=chordForDegree(d).pcs;
+     const sum=frames.reduce((s,n)=>s+(pcs.includes(n.pc)?1:-.5)*n.weight,0);
+     const weight=frames.reduce((s,n)=>s+n.weight,0)||1;
+     const prev=degrees.length?degrees[degrees.length-1]:null;
+     const score=sum/weight+(d===0?.06:0)+(prev===d?.09:0)-(d===6?.17:0);
+     if(score>bestScore){bestScore=score;best=d}
+   }
+   degrees.push(best);durations.push(4);
+ }
+ if(!degrees.length){$('teachStatus').textContent='No clear melody detected. Try again closer to the microphone.';return}
+ if(playing)stop();
+ customDegrees=degrees;customBeats=durations;
+ applyCustom('Estimated '+degrees.length+' chords from your sung melody. These are suggestions, not exact song harmony. Edit them using the chord pads, then press Play my pattern.');
+}
+async function startTeaching(){
+ if(teaching){stopTeaching();return}
+ if(playing)stop(); // prevent our own keyboard sound from contaminating voice detection
+ if(!micEnabled)await toggleMic();
+ if(!micEnabled){$('teachStatus').textContent='Microphone is off. Allow microphone access in Chrome to teach by singing.';return}
+ recordedMelody=[];teachStart=Date.now();teaching=true;
+ $('teachRecord').textContent='■ Finish singing';
+ $('teachRecord').classList.add('recording');
+ $('teachStatus').textContent='Recording your melody… sing a phrase, then tap Finish singing. Maximum 45 seconds.';
+}
 function beginBar(when,beatLength){
  const sequence=PATTERNS[$('pattern').value];
  if(step>0)chordIndex=chooseFollowIndex();
  let chord=chordForDegree(sequence[chordIndex]);
+ const beats=($('pattern').value==='custom'&&customDegrees.length)?(customBeats[chordIndex]||4):4;
+ nextChordAtStep=step+2*beats;
  let notes=pianoVoicing(chord);currentVoicing=notes;
  let bass=36+chord.root;
  if(bass>48)bass-=12;
- tone(bass,when,beatLength*3.4,.48,'piano');
- notes.forEach((n,i)=>tone(n,when+.04+i*.045,beatLength*3.5,.45,'piano'));
- notes.forEach(n=>tone(n-12,when,beatLength*4.0,.33,'pad'));
+ tone(bass,when,beatLength*Math.max(1,beats-.6),.48,'piano');
+ notes.forEach((n,i)=>tone(n,when+.04+i*.045,beatLength*Math.max(1,beats-.5),.45,'piano'));
+ notes.forEach(n=>tone(n-12,when,beatLength*beats,.33,'pad'));
  setChordUI();
 }
 function schedule(){
@@ -152,14 +273,14 @@ function schedule(){
  let guard=0;
  while(nextTime<until && guard++<32){
   const beat=60/Number($('bpm').value);
-  if(step%8===0)beginBar(nextTime,beat);
+  if(step>=nextChordAtStep)beginBar(nextTime,beat);
   const ch=chordForDegree(PATTERNS[$('pattern').value][chordIndex]);
   if(step%2===0){const notes=currentVoicing.length?currentVoicing:pianoVoicing(ch);const arp=[0,1,2,1];const idx=arp[(step/2)%4];tone(notes[idx]+(step%8===6?12:0),nextTime+.02,beat*.9,.16,'piano')}
   nextTime+=beat/2;step++;
  }
 }
-function start(){try{initAudio();if(playing)return;master.gain.cancelScheduledValues(ctx.currentTime);master.gain.setTargetAtTime(Number($('volume').value)/100*.62,ctx.currentTime,.05);playing=true;step=0;chordIndex=0;currentVoicing=[];nextTime=ctx.currentTime+.1;$('play').disabled=true;$('stop').disabled=false;$('status').textContent='● Accompanying';$('status').classList.remove('off');clock=setInterval(schedule,40);schedule();setChordUI();$('alert').textContent=''}catch(e){$('alert').textContent='Could not start audio: '+e.message}}
-function stop(){playing=false;if(clock)clearInterval(clock);clock=null;step=0;chordIndex=0;currentVoicing=[];$('play').disabled=false;$('stop').disabled=true;$('status').textContent='Not playing';$('status').classList.add('off');setChordUI();if(ctx){ // Fade old notes out and re-create the audio graph safely.
+function start(){try{initAudio();if(playing)return;master.gain.cancelScheduledValues(ctx.currentTime);master.gain.setTargetAtTime(Number($('volume').value)/100*.62,ctx.currentTime,.05);playing=true;step=0;nextChordAtStep=0;chordIndex=0;currentVoicing=[];nextTime=ctx.currentTime+.1;$('play').disabled=true;$('stop').disabled=false;$('status').textContent='● Accompanying';$('status').classList.remove('off');clock=setInterval(schedule,40);schedule();setChordUI();$('alert').textContent=''}catch(e){$('alert').textContent='Could not start audio: '+e.message}}
+function stop(){playing=false;if(clock)clearInterval(clock);clock=null;step=0;nextChordAtStep=0;chordIndex=0;currentVoicing=[];$('play').disabled=false;$('stop').disabled=true;$('status').textContent='Not playing';$('status').classList.add('off');setChordUI();if(ctx){ // Fade old notes out and re-create the audio graph safely.
  master.gain.cancelScheduledValues(ctx.currentTime);master.gain.setTargetAtTime(.0001,ctx.currentTime,.055);
  setTimeout(()=>{if(!playing&&ctx)master.gain.setTargetAtTime(Number($('volume').value)/100*.62,ctx.currentTime,.08)},550)
 }}
@@ -190,13 +311,14 @@ function pollMic(){
   const octave=Math.floor(midi/12)-1;
   $('sungnote').textContent=NAMES[pc]+octave;
   $('voiceStatus').textContent='Listening';
-  const at=Date.now();sungNotes.push({pc,at,weight:Math.min(1,rms/.08)});lastVoiceAt=at;lastMicPitch=pc;
+  const at=Date.now();sungNotes.push({pc,at,weight:Math.min(1,rms/.08)});if(teaching)recordedMelody.push({pc,at,weight:Math.min(1,rms/.08)});lastVoiceAt=at;lastMicPitch=pc;
  }else if(Date.now()-lastVoiceAt>500){$('sungnote').textContent='—';$('voiceStatus').textContent='Waiting for singing'}
  sungNotes=sungNotes.filter(n=>Date.now()-n.at<3500);
+ if(teaching&&Date.now()-teachStart>=45000)stopTeaching();
  micLoop=setTimeout(pollMic,100);
 }
 async function toggleMic(){
- if(micEnabled){micEnabled=false;clearTimeout(micLoop);if(micStream){micStream.getTracks().forEach(x=>x.stop());micStream=null}if(micSource){micSource.disconnect();micSource=null}if(analyser){analyser.disconnect();analyser=null}$('mic').textContent='🎙 Enable mic';$('voiceStatus').textContent='Mic off';$('sungnote').textContent='—';$('meter').style.width='0';sungNotes=[];return}
+ if(micEnabled){if(teaching)stopTeaching();micEnabled=false;clearTimeout(micLoop);if(micStream){micStream.getTracks().forEach(x=>x.stop());micStream=null}if(micSource){micSource.disconnect();micSource=null}if(analyser){analyser.disconnect();analyser=null}$('mic').textContent='🎙 Enable mic';$('voiceStatus').textContent='Mic off';$('sungnote').textContent='—';$('meter').style.width='0';sungNotes=[];return}
  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){$('alert').textContent='Microphone unavailable in this browser or from this file location. Try a current browser over HTTPS or localhost.';return}
  try{initAudio();micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
  micSource=ctx.createMediaStreamSource(micStream);analyser=ctx.createAnalyser();analyser.fftSize=4096;micSource.connect(analyser);micEnabled=true;lastVoiceAt=0;$('mic').textContent='✕ Turn off mic';$('voiceStatus').textContent='Waiting for singing';$('alert').textContent='Microphone on. Best results with headphones and one clear sung note at a time.';pollMic()}
@@ -205,14 +327,39 @@ async function toggleMic(){
 $('play').addEventListener('click',start);$('stop').addEventListener('click',stop);$('mic').addEventListener('click',toggleMic);
 $('bpm').addEventListener('input',e=>$('bpmval').textContent=e.target.value);
 $('volume').addEventListener('input',e=>{$('volval').textContent=e.target.value+'%';if(ctx&&master&&playing)master.gain.setTargetAtTime(Number(e.target.value)/100*.62,ctx.currentTime,.05)});
-keySel.addEventListener('change',()=>{currentVoicing=[];setChordUI()});
+keySel.addEventListener('change',()=>{currentVoicing=[];renderPads();renderSequence();setChordUI()});
 $('pattern').addEventListener('change',()=>{chordIndex=0;currentVoicing=[];setChordUI()});
+$('useCustom').addEventListener('click',()=>{
+ if(!customDegrees.length){$('teachStatus').textContent='Tap at least one chord first, or record a melody.';return}
+ if(teaching)stopTeaching();
+ if(playing)stop();
+ applyCustom('Playing your '+customDegrees.length+' chord worship loop. Change key or tempo at any time.');
+ start();
+});
+$('undoCustom').addEventListener('click',()=>{
+ if(playing)stop();
+ customDegrees.pop();customBeats.pop();applyCustom('Undid the last chord.');
+});
+$('clearCustom').addEventListener('click',()=>{
+ if(playing)stop();
+ customDegrees=[];customBeats=[];applyCustom('Pattern cleared. Tap chords to start again.');
+});
+$('teachRecord').addEventListener('click',startTeaching);
+$('tapTempo').addEventListener('click',()=>{
+ const now=Date.now();
+ if(tapTimes.length&&now-tapTimes[tapTimes.length-1]>2500)tapTimes=[];
+ tapTimes.push(now);tapTimes=tapTimes.slice(-6);
+ if(tapTimes.length>=3){
+  const deltas=tapTimes.slice(1).map((v,i)=>v-tapTimes[i]).filter(v=>v>300&&v<1300).sort((a,b)=>a-b);
+  if(deltas.length>=2){const med=deltas[Math.floor(deltas.length/2)];const bpm=Math.max(48,Math.min(108,Math.round(60000/med)));$('bpm').value=bpm;$('bpmval').textContent=bpm;$('teachStatus').textContent='Tempo set to '+bpm+' BPM. Tap the chords and play your pattern.';}
+ }else $('teachStatus').textContent='Keep tapping the beat 4–6 times…';
+});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing){ // Avoid missed scheduling after mobile tab suspension.
   if(clock)clearInterval(clock);clock=null;
 }else if(!document.hidden&&playing&&ctx){nextTime=ctx.currentTime+.1;clock=setInterval(schedule,40)}
 });
 window.addEventListener('beforeunload',()=>{if(micStream)micStream.getTracks().forEach(x=>x.stop())});
-setChordUI();
+renderPads();renderSequence();setChordUI();
 </script>
 </body>
 </html>
