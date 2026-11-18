@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#101827">
+<title>WorshipKeys — Your Singing Companion</title>
+<style>
+:root{color-scheme:dark;--bg:#0e1421;--panel:#172337;--line:#2b3b50;--text:#f3f1e9;--muted:#aab6c6;--gold:#f3c56c;--mint:#83dec9;--rose:#ed9fa4}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 85% 2%,#294b51 0%,transparent 40%),radial-gradient(ellipse at 0 65%,#292642 0%,transparent 45%),var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+main{max-width:800px;padding:clamp(18px,5vw,42px) 18px 68px;margin:0 auto}
+.eyebrow{font-size:12px;letter-spacing:2.5px;font-weight:800;color:var(--mint);text-transform:uppercase}
+h1{font-size:clamp(34px,6vw,51px);line-height:1.1;letter-spacing:-2px;margin:10px 0 14px}h1 span{color:var(--gold)}.lead{color:var(--muted);max-width:560px;margin:0 0 28px}
+.panel{background:linear-gradient(145deg,#1b293f 0%,#142033 100%);border:1px solid #334256;border-radius:20px;padding:22px;margin-top:17px;box-shadow:0 12px 36px #00000024}
+.topline{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}.chip{font-size:12px;font-weight:750;padding:5px 10px;border:1px solid #495969;border-radius:100px;color:var(--mint)}.chip.off{color:var(--muted)}.hero-chord{font-size:clamp(58px,14vw,100px);font-weight:800;line-height:1.15;letter-spacing:-5px;color:var(--gold);margin:16px 0 0}.chord-label{font-size:13px;letter-spacing:2px;font-weight:650;text-transform:uppercase;color:var(--muted)}
+.progress{display:flex;gap:9px;margin:26px 0 8px}.prog{min-width:0;flex:1;background:#101b2b;border:1px solid #35435a;border-radius:10px;padding:9px 4px;text-align:center;font-weight:700;color:#b9c4d3;transition:.16s}.prog.active{border-color:var(--gold);background:#51482c;color:#fff0c2;box-shadow:0 0 17px #f3c56c20}
+.keyboard{display:flex;height:107px;border-radius:8px;overflow:hidden;border:1px solid #11161d;margin:18px 0 4px;position:relative;background:#f6f6f6}.white{flex:1;background:linear-gradient(#fff,#e7e6df);border-right:1px solid #8b9197;position:relative}.white.on{background:linear-gradient(#fce39c,#fff1be)}.black{position:absolute;top:0;height:63%;width:4.5%;background:linear-gradient(#273341,#080f18);border-radius:0 0 4px 4px;transform:translateX(-50%);z-index:2}.black.on{background:linear-gradient(#c28c36,#5d452b)}
+.controlrow{display:grid;grid-template-columns:1fr 1fr;gap:13px}.control{display:flex;flex-direction:column;gap:7px;color:var(--muted);font-size:13px;font-weight:700}select,input[type=range]{width:100%}select{background:#101b2b;border:1px solid #45556b;border-radius:11px;padding:12px;color:var(--text);font:600 15px system-ui}input[type=range]{accent-color:var(--gold);height:22px}.slider-label{display:flex;justify-content:space-between}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:19px}button{border:1px solid #56677c;border-radius:13px;color:var(--text);background:#27364b;padding:13px 17px;font-size:15px;font-weight:800;cursor:pointer;touch-action:manipulation}button.primary{background:var(--gold);border-color:var(--gold);color:#1d2734;flex:1}button:disabled{opacity:.4;cursor:not-allowed}button:hover:not(:disabled){filter:brightness(1.07)}button:focus-visible,select:focus-visible{outline:3px solid var(--mint);outline-offset:3px}
+.micstate{display:flex;align-items:center;gap:17px;margin:13px 0 5px;flex-wrap:wrap}.note{font-size:30px;font-weight:800;color:var(--mint);min-width:80px}.meters{height:9px;background:#0f1827;flex:1;min-width:80px;border-radius:10px;overflow:hidden;border:1px solid #32445c}.meterfill{height:100%;width:0;background:linear-gradient(90deg,var(--mint),var(--gold));border-radius:10px;transition:width .12s}.hint{font-size:13px;color:var(--muted);margin:9px 0 0}.helper{border-top:1px solid #334458;margin-top:19px;padding-top:14px;font-size:13px;color:var(--muted)}.helper strong{color:var(--text)}.toggle{display:flex;align-items:center;gap:9px;color:var(--text);font-size:14px;font-weight:600;margin-top:12px}.toggle input{accent-color:var(--gold);width:18px;height:18px}
+footer{color:#aeb8c9;font-size:12px;line-height:1.6;margin-top:23px}#alert{min-height:19px;color:var(--rose);font-size:13px;margin:10px 0 0}
+@media (max-width:450px){.panel{padding:16px}.actions button{width:100%}.controlrow{grid-template-columns:1fr}.progress{gap:5px}.prog{font-size:13px}}
+</style>
+</head>
+<body>
+<main>
+<div class="eyebrow">Live worship companion · prototype</div>
+<h1>Your voice.<br><span>Your keyboardist.</span></h1>
+<p class="lead">Sing freely while a gentle piano and warm worship pad play underneath. Turn on the microphone to let the accompaniment experiment with following your notes.</p>
+<section class="panel" aria-label="Currently playing">
+ <div class="topline"><div class="chord-label">Current chord</div><span id="status" class="chip off">Not playing</span></div>
+ <div id="chord" class="hero-chord">C</div>
+ <div id="detail" class="chord-label">Worship in C major</div>
+ <div class="progress" id="progress" aria-label="Chord sequence"></div>
+ <div class="keyboard" id="keyboard" aria-label="Visualization of played notes"></div>
+</section>
+<section class="panel" aria-label="Accompaniment controls">
+ <div class="controlrow">
+  <label class="control">Key<select id="key"></select></label>
+  <label class="control">Worship progression<select id="pattern"><option value="gentle">Gentle worship · I–V–vi–IV</option><option value="prayer">Prayer · I–vi–IV–V</option><option value="rise">Build-up · I–IV–I–V–vi–IV–V–I</option></select></label>
+  <label class="control"><span class="slider-label">Tempo <span><b id="bpmval">68</b> BPM</span></span><input type="range" id="bpm" min="48" max="108" value="68" step="1"></label>
+  <label class="control"><span class="slider-label">Keyboard volume <span id="volval">55%</span></span><input type="range" id="volume" min="0" max="100" value="55" step="1"></label>
+ </div>
+ <div class="actions"><button class="primary" id="play">▶ Play worship piano</button><button id="stop" disabled>■ Stop</button></div>
+ <p class="hint">Try singing: “And the glory must be to the Lord…” over the original chord pattern. Use headphones for the best experience.</p>
+</section>
+<section class="panel" aria-label="Listen to singer">
+ <div class="topline"><div><div class="eyebrow">Experiment</div><h2 style="font-size:22px;margin:6px 0 0">Listen to my singing</h2></div><button id="mic">🎙 Enable mic</button></div>
+ <div class="micstate"><div class="note" id="sungnote">—</div><div class="meters"><div class="meterfill" id="meter"></div></div><span style="font-size:12px;color:var(--muted)" id="voiceStatus">Mic off</span></div>
+ <label class="toggle"><input type="checkbox" id="follow" checked> Experimental chord following (only when mic is on)</label>
+ <p class="hint">Mic mode detects your approximate sung pitch. At each measure, it can choose to stay on the current chord or move forward if your melody fits. It does <strong>not</strong> yet recognize songs, learn arbitrary harmonies, or truly match your tempo.</p>
+ <p id="alert" role="status"></p>
+ <div class="helper"><strong>How to use:</strong> 1. Press <strong>Play worship piano</strong>. 2. Start singing. 3. Optionally press <strong>Enable mic</strong>, allow microphone access, and sing a little closer to your phone. 4. Change the key until it feels comfortable.<br><br><strong>Privacy:</strong> Microphone audio is analyzed in your browser. This file does not record, store, or upload your voice.</div>
+</section>
+<footer>Original worship accompaniment generated with Web Audio. Standalone offline HTML; no account, subscription, or external service required. If microphone access is blocked when opened as a local file, serve this file from localhost or a secure HTTPS site. Use headphones to prevent feedback.</footer>
+</main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const NAMES=['C','C♯','D','E♭','E','F','F♯','G','A♭','A','B♭','B'];
+const SCALE=[0,2,4,5,7,9,11];
+const PATTERNS={gentle:[0,4,5,3],prayer:[0,5,3,4],rise:[0,3,0,4,5,3,4,0]};
+const QUALITY=['','m','m','','','m','dim'];
+let ctx, master, compressor, analyser, micStream, micSource, micEnabled=false, playing=false;
+let step=0, nextTime=0, clock=null, lastChordIdx=0, chordIndex=0, currentVoicing=[], lastVoiceAt=0;
+let sungNotes=[], micLoop=0, lastMicPitch=null, onsetNoteCount=0;
+const keySel=$('key');
+NAMES.forEach((name,i)=>{const o=document.createElement('option');o.value=i;o.textContent=name+' major';keySel.appendChild(o)});
+const $keys=$('keyboard');
+for(let i=0;i<14;i++){let k=document.createElement('div');k.className='white';k.dataset.pc=String([0,2,4,5,7,9,11][i%7]);$keys.appendChild(k)}
+for(let i=0;i<13;i++){
+  const pc=(i%12), interval=pc===1||pc===3||pc===6||pc===8||pc===10;
+  if(!interval)continue;
+  const octave=Math.floor(i/12), whitesBefore=Array.from({length:i},(_,j)=>j%12).filter(x=>[0,2,4,5,7,9,11].includes(x)).length;
+  let b=document.createElement('div');b.className='black';b.dataset.pc=String(pc);b.style.left=(whitesBefore/14*100)+'%';$keys.appendChild(b)
+}
+const pitch=m=>440*Math.pow(2,(m-69)/12);
+const chordForDegree=(degree)=>{const root=(Number(keySel.value)+SCALE[degree])%12;const third=(root+(degree===1||degree===2||degree===5?3:4))%12;const fifth=(root+(degree===6?6:7))%12;return {degree,root,pcs:[root,third,fifth],name:NAMES[root]+QUALITY[degree]}};
+function setChordUI(){
+ const degrees=PATTERNS[$('pattern').value];
+ const chord=chordForDegree(degrees[chordIndex%degrees.length]);
+ $('chord').textContent=chord.name;$('detail').textContent='Worship in '+NAMES[Number(keySel.value)]+' major';
+ const p=$('progress');p.innerHTML='';degrees.forEach((degree,i)=>{const div=document.createElement('div');div.className='prog'+(i===chordIndex?' active':'');div.textContent=chordForDegree(degree).name;p.appendChild(div)});
+ for(const k of $keys.children)k.classList.toggle('on',chord.pcs.includes((Number(k.dataset.pc)+Number(keySel.value)*0)%12));
+}
+function initAudio(){
+ if(!ctx){ctx=new (window.AudioContext||window.webkitAudioContext)();compressor=ctx.createDynamicsCompressor();compressor.threshold.value=-20;compressor.ratio.value=3;compressor.attack.value=.005;compressor.release.value=.26;master=ctx.createGain();master.gain.value=Number($('volume').value)/100*.62;compressor.connect(master);master.connect(ctx.destination)}
+ if(ctx.state==='suspended')ctx.resume();
+}
+function tone(midi,when,duration=1.5,velocity=.5,kind='piano'){
+ if(!ctx)return;
+ const g=ctx.createGain();g.gain.value=0;g.connect(compressor);
+ const freq=pitch(midi);
+ const partials=kind==='pad'?[[1,.72],[1.005,.28]]:[[1,.72],[2,.19],[3,.09]];
+ const attack=kind==='pad'?.3:.012;
+ const release=kind==='pad'?2.0:Math.min(3.0,duration+1.4);
+ const level=velocity*(kind==='pad'?.11:.22);
+ g.gain.setValueAtTime(.0001,when);
+ g.gain.exponentialRampToValueAtTime(Math.max(.0002,level),when+attack);
+ if(kind==='pad'){
+    g.gain.setTargetAtTime(Math.max(.0002,level*.7),when+attack,.8);
+    g.gain.setTargetAtTime(.0001,when+duration,.65);
+ }else{
+    g.gain.exponentialRampToValueAtTime(Math.max(.0002,level*.48),when+.3);
+    g.gain.exponentialRampToValueAtTime(.0001,when+release);
+ }
+ partials.forEach(([mult,amp],i)=>{const o=ctx.createOscillator();o.type=kind==='pad'?(i===0?'sine':'triangle'):'sine';o.frequency.setValueAtTime(freq*mult,when);const p=ctx.createGain();p.gain.value=amp;o.connect(p);p.connect(g);o.start(when);o.stop(when+Math.max(release,duration+2.5)+.2)});
+}
+function pianoVoicing(chord){
+ let base=60+((chord.root-0+12)%12); // center octave for stable chord voicing
+ let notes=[base,base+((chord.pcs[1]-chord.root+12)%12),base+((chord.pcs[2]-chord.root+12)%12)];
+ // Voice lead using common tones and nearby inversions.
+ let options=[];
+ for(let inv=0;inv<3;inv++){
+  let a=notes.slice();for(let j=0;j<inv;j++)a[j]+=12;a.sort((x,y)=>x-y);
+  for(let octave=-1;octave<=0;octave++){
+   const v=a.map(n=>n+octave*12);
+   if(v[0]>=52&&v[2]<=79)options.push(v)
+  }
+ }
+ if(currentVoicing.length){options.sort((a,b)=>a.reduce((s,v,i)=>s+Math.abs(v-currentVoicing[i]),0)-b.reduce((s,v,i)=>s+Math.abs(v-currentVoicing[i]),0))}
+ return options[0]||notes;
+}
+function chooseFollowIndex(){
+ const seq=PATTERNS[$('pattern').value],now=chordIndex,next=(now+1)%seq.length;
+ if(!micEnabled||!$('follow').checked)return next;
+ const recent=sungNotes.filter(n=>Date.now()-n.at<2500);
+ if(recent.length<5)return next;
+ const score=idx=>{
+  const pcs=chordForDegree(seq[idx]).pcs;
+  return recent.reduce((total,n)=>total+(pcs.includes(n.pc)?n.weight:-n.weight*.22),0)/recent.reduce((s,n)=>s+n.weight,0)
+ };
+ // Don't switch merely to chase an isolated sung note. Prefer progression until a sustained note fits current chord significantly better.
+ const nowScore=score(now), nextScore=score(next);
+ return nowScore>nextScore+.28 && nowScore>.5 && (step%16!==0)?now:next;
+}
+function beginBar(when,beatLength){
+ const sequence=PATTERNS[$('pattern').value];
+ if(step>0)chordIndex=chooseFollowIndex();
+ let chord=chordForDegree(sequence[chordIndex]);
+ let notes=pianoVoicing(chord);currentVoicing=notes;
+ let bass=36+chord.root;
+ if(bass>48)bass-=12;
+ tone(bass,when,beatLength*3.4,.48,'piano');
+ notes.forEach((n,i)=>tone(n,when+.04+i*.045,beatLength*3.5,.45,'piano'));
+ notes.forEach(n=>tone(n-12,when,beatLength*4.0,.33,'pad'));
+ setChordUI();
+}
+function schedule(){
+ if(!playing||!ctx)return;
+ let until=ctx.currentTime+.17;
+ let guard=0;
+ while(nextTime<until && guard++<32){
+  const beat=60/Number($('bpm').value);
+  if(step%8===0)beginBar(nextTime,beat);
+  const ch=chordForDegree(PATTERNS[$('pattern').value][chordIndex]);
+  if(step%2===0){const notes=currentVoicing.length?currentVoicing:pianoVoicing(ch);const arp=[0,1,2,1];const idx=arp[(step/2)%4];tone(notes[idx]+(step%8===6?12:0),nextTime+.02,beat*.9,.16,'piano')}
+  nextTime+=beat/2;step++;
+ }
+}
+function start(){try{initAudio();if(playing)return;master.gain.cancelScheduledValues(ctx.currentTime);master.gain.setTargetAtTime(Number($('volume').value)/100*.62,ctx.currentTime,.05);playing=true;step=0;chordIndex=0;currentVoicing=[];nextTime=ctx.currentTime+.1;$('play').disabled=true;$('stop').disabled=false;$('status').textContent='● Accompanying';$('status').classList.remove('off');clock=setInterval(schedule,40);schedule();setChordUI();$('alert').textContent=''}catch(e){$('alert').textContent='Could not start audio: '+e.message}}
+function stop(){playing=false;if(clock)clearInterval(clock);clock=null;step=0;chordIndex=0;currentVoicing=[];$('play').disabled=false;$('stop').disabled=true;$('status').textContent='Not playing';$('status').classList.add('off');setChordUI();if(ctx){ // Fade old notes out and re-create the audio graph safely.
+ master.gain.cancelScheduledValues(ctx.currentTime);master.gain.setTargetAtTime(.0001,ctx.currentTime,.055);
+ setTimeout(()=>{if(!playing&&ctx)master.gain.setTargetAtTime(Number($('volume').value)/100*.62,ctx.currentTime,.08)},550)
+}}
+function detectPitch(buffer,sampleRate){
+ let rms=0;const n=2048;for(let i=0;i<n;i++){const x=buffer[i*2];rms+=x*x}rms=Math.sqrt(rms/n);
+ if(rms<.016)return {hz:null,rms};
+ const rate=sampleRate/2, minLag=Math.floor(rate/750), maxLag=Math.floor(rate/85), diffs=new Float32Array(maxLag+1);
+ const window=1024;
+ for(let tau=minLag;tau<=maxLag;tau++){
+  let sum=0;for(let i=0;i<window;i++){const d=buffer[2*i]-buffer[2*(i+tau)];sum+=d*d}diffs[tau]=sum;
+ }
+ let cumulative=0,bestTau=0,bestVal=1;
+ for(let tau=minLag;tau<=maxLag;tau++){
+  cumulative+=diffs[tau];const cmndf=diffs[tau]*tau/Math.max(cumulative,.00001);
+  if(cmndf<.15 && cmndf<bestVal){bestVal=cmndf;bestTau=tau;break}
+ }
+ if(!bestTau)return {hz:null,rms};
+ const hz=rate/bestTau;
+ return {hz:hz>85&&hz<750?hz:null,rms};
+}
+function pollMic(){
+ if(!micEnabled||!analyser||!ctx)return;
+ let buf=new Float32Array(4096);analyser.getFloatTimeDomainData(buf);
+ const {hz,rms}=detectPitch(buf,ctx.sampleRate);
+ $('meter').style.width=(Math.min(100,Math.round(rms*420)))+'%';
+ if(hz){
+  const midi=Math.round(69+12*Math.log2(hz/440)),pc=((midi%12)+12)%12;
+  const octave=Math.floor(midi/12)-1;
+  $('sungnote').textContent=NAMES[pc]+octave;
+  $('voiceStatus').textContent='Listening';
+  const at=Date.now();sungNotes.push({pc,at,weight:Math.min(1,rms/.08)});lastVoiceAt=at;lastMicPitch=pc;
+ }else if(Date.now()-lastVoiceAt>500){$('sungnote').textContent='—';$('voiceStatus').textContent='Waiting for singing'}
+ sungNotes=sungNotes.filter(n=>Date.now()-n.at<3500);
+ micLoop=setTimeout(pollMic,100);
+}
+async function toggleMic(){
+ if(micEnabled){micEnabled=false;clearTimeout(micLoop);if(micStream){micStream.getTracks().forEach(x=>x.stop());micStream=null}if(micSource){micSource.disconnect();micSource=null}if(analyser){analyser.disconnect();analyser=null}$('mic').textContent='🎙 Enable mic';$('voiceStatus').textContent='Mic off';$('sungnote').textContent='—';$('meter').style.width='0';sungNotes=[];return}
+ if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){$('alert').textContent='Microphone unavailable in this browser or from this file location. Try a current browser over HTTPS or localhost.';return}
+ try{initAudio();micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
+ micSource=ctx.createMediaStreamSource(micStream);analyser=ctx.createAnalyser();analyser.fftSize=4096;micSource.connect(analyser);micEnabled=true;lastVoiceAt=0;$('mic').textContent='✕ Turn off mic';$('voiceStatus').textContent='Waiting for singing';$('alert').textContent='Microphone on. Best results with headphones and one clear sung note at a time.';pollMic()}
+ catch(e){$('alert').textContent='Microphone permission failed: '+(e.message||e.name)+'. In Chrome, tap the padlock/settings icon near the address, open Site settings → Microphone → Allow, then reload. Make sure this page is opened directly via HTTPS, not in a ChatGPT preview.''}
+}
+$('play').addEventListener('click',start);$('stop').addEventListener('click',stop);$('mic').addEventListener('click',toggleMic);
+$('bpm').addEventListener('input',e=>$('bpmval').textContent=e.target.value);
+$('volume').addEventListener('input',e=>{$('volval').textContent=e.target.value+'%';if(ctx&&master&&playing)master.gain.setTargetAtTime(Number(e.target.value)/100*.62,ctx.currentTime,.05)});
+keySel.addEventListener('change',()=>{currentVoicing=[];setChordUI()});
+$('pattern').addEventListener('change',()=>{chordIndex=0;currentVoicing=[];setChordUI()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing){ // Avoid missed scheduling after mobile tab suspension.
+  if(clock)clearInterval(clock);clock=null;
+}else if(!document.hidden&&playing&&ctx){nextTime=ctx.currentTime+.1;clock=setInterval(schedule,40)}
+});
+window.addEventListener('beforeunload',()=>{if(micStream)micStream.getTracks().forEach(x=>x.stop())});
+setChordUI();
+</script>
+</body>
+</html>
