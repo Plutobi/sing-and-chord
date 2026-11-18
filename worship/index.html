@@ -165,6 +165,7 @@ function pianoVoicing(chord){
 }
 function chooseFollowIndex(){
  const seq=PATTERNS[$('pattern').value],now=chordIndex,next=(now+1)%seq.length;
+ if($('pattern').value==='custom')return next; // honor the user's taught progression exactly
  if(!micEnabled||!$('follow').checked)return next;
  const recent=sungNotes.filter(n=>Date.now()-n.at<2500);
  if(recent.length<5)return next;
