@@ -200,7 +200,7 @@ async function toggleMic(){
  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){$('alert').textContent='Microphone unavailable in this browser or from this file location. Try a current browser over HTTPS or localhost.';return}
  try{initAudio();micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true},video:false});
  micSource=ctx.createMediaStreamSource(micStream);analyser=ctx.createAnalyser();analyser.fftSize=4096;micSource.connect(analyser);micEnabled=true;lastVoiceAt=0;$('mic').textContent='✕ Turn off mic';$('voiceStatus').textContent='Waiting for singing';$('alert').textContent='Microphone on. Best results with headphones and one clear sung note at a time.';pollMic()}
- catch(e){$('alert').textContent='Microphone permission failed: '+(e.message||e.name)+'. In Chrome, tap the padlock/settings icon near the address, open Site settings → Microphone → Allow, then reload. Make sure this page is opened directly via HTTPS, not in a ChatGPT preview.''}
+ catch(e){$('alert').textContent='Microphone permission failed: '+(e.message||e.name)+'. In Chrome, tap the padlock/settings icon near the address, open Site settings → Microphone → Allow, then reload. Make sure this page is opened directly via HTTPS, not in a ChatGPT preview.'}
 }
 $('play').addEventListener('click',start);$('stop').addEventListener('click',stop);$('mic').addEventListener('click',toggleMic);
 $('bpm').addEventListener('input',e=>$('bpmval').textContent=e.target.value);
